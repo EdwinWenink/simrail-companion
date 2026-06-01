@@ -270,7 +270,7 @@ class PlayerTracker:
                 )
                 if journey_id:
                     self.current_journey_id = journey_id
-                    logger.info("✓ Found timetable (journey %s...)", journey_id[:8])
+                    logger.info("✓ Found timetable (journey %s...)", journey_id)
 
                     # Get and display vehicle composition
                     await self._display_vehicle_composition(journey_id)
