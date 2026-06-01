@@ -293,7 +293,7 @@ class PlayerTracker:
             # Show next 3-5 stations with their info
             upcoming_count = min(5, len(delays))
             logger.info(f"\n{'─' * 80}")
-            logger.info(f"🚂 UPCOMING STATIONS (next {upcoming_count} of {len(delays)}):")
+            logger.info(f"🚂 UPCOMING STATION EVENTS (next {upcoming_count} of {len(delays)}):")
             logger.info(f"{'─' * 80}")
 
             for i, delay in enumerate(delays[:upcoming_count], 1):
@@ -328,10 +328,10 @@ class PlayerTracker:
                     stop_indicator = "━━━"
                     action = "Pass"
                 elif event_type.lower() == "arrival":
-                    stop_indicator = "[X]"
+                    stop_indicator = "[A]"
                     action = "Arrive"
                 elif event_type.lower() == "departure":
-                    stop_indicator = "[X]"
+                    stop_indicator = "[D]"
                     action = "Depart"
                 else:
                     stop_indicator = "   "
