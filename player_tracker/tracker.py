@@ -40,7 +40,7 @@ class PlayerTracker:
         await self.sync_steam_stats()
 
         self.running = True
-        logger.info(f"Started tracking player {self.steam_id}")
+        logger.info("Started tracking player %s", self.steam_id)
 
         try:
             while self.running:
@@ -51,7 +51,7 @@ class PlayerTracker:
                     logger.info("Tracker task cancelled")
                     break
                 except Exception as e:
-                    logger.error(f"Error during tracking: {e}")
+                    logger.error("Error during tracking: %s", e)
 
                 # Sleep with cancellation check
                 try:
@@ -71,20 +71,22 @@ class PlayerTracker:
 
     async def _check_player_activity(self):
         """Check current player activity and update sessions."""
-        logger.debug(f"Checking activity for player {self.steam_id}")
+        logger.debug("Checking activity for player %s", self.steam_id)
         activity = await self.simrail_client.find_player(self.steam_id)
 
         if not activity:
             # Player is offline, end any active sessions
-            logger.info(f"Player {self.steam_id} is offline")
+            logger.info("Player %s is offline", self.steam_id)
             await self._end_active_sessions()
             return
 
         if activity["activity_type"] == "train":
-            logger.debug(f"Player on train {activity['train_number']} ({activity['train_name']}) on server {activity['server_code']}")
+            logger.debug("Player on train %s (%s) on server %s",
+                        activity['train_number'], activity['train_name'], activity['server_code'])
             await self._handle_train_activity(activity)
         else:
-            logger.debug(f"Player at station {activity['station_name']} on server {activity['server_code']}")
+            logger.debug("Player at station %s on server %s",
+                        activity['station_name'], activity['server_code'])
             await self._handle_station_activity(activity)
 
     async def _handle_train_activity(self, activity: dict):
@@ -92,7 +94,7 @@ class PlayerTracker:
         # End any active station session
         if self.current_station_session_id:
             self.db.end_station_session(self.current_station_session_id)
-            logger.info(f"Player switched from station to train - ended station session")
+            logger.info("Player switched from station to train - ended station session")
             self.current_station_session_id = None
 
         # Check if this is a new train session
@@ -101,13 +103,14 @@ class PlayerTracker:
         if active_session and active_session["train_number"] == activity["train_number"]:
             # Same train, still active - check for delay updates periodically
             # (we check every poll, but the detailed output only shows when there are changes)
-            logger.debug(f"Player still on train {activity['train_number']}")
+            logger.debug("Player still on train %s", activity['train_number'])
             await self._check_delay_status(activity)
             return
 
         # End old train session if exists
         if active_session:
-            logger.info(f"Player switched trains: {active_session['train_number']} -> {activity['train_number']}")
+            logger.info("Player switched trains: %s -> %s",
+                       active_session['train_number'], activity['train_number'])
             await self._end_train_session(active_session["id"])
 
         # Start new train session
@@ -120,7 +123,7 @@ class PlayerTracker:
         """Handle player dispatching at a station."""
         # End any active train session
         if self.current_train_session_id:
-            logger.info(f"Player switched from train to station")
+            logger.info("Player switched from train to station")
             await self._end_train_session(self.current_train_session_id)
 
         # Check if this is a new station session
@@ -128,12 +131,13 @@ class PlayerTracker:
 
         if active_session and active_session["station_name"] == activity["station_name"]:
             # Same station, still active
-            logger.debug(f"Player still at station {activity['station_name']}")
+            logger.debug("Player still at station %s", activity['station_name'])
             return
 
         # End old station session if exists
         if active_session:
-            logger.info(f"Player switched stations: {active_session['station_name']} -> {activity['station_name']}")
+            logger.info("Player switched stations: %s -> %s",
+                       active_session['station_name'], activity['station_name'])
             self.db.end_station_session(active_session["id"])
 
         # Start new station session
@@ -158,7 +162,8 @@ class PlayerTracker:
         if steam_stats:
             self.start_steam_distance = steam_stats["DISTANCE_M"]
             self.start_steam_points = steam_stats["SCORE"]
-            logger.debug(f"Baseline stats: {self.start_steam_distance}m, {self.start_steam_points} points")
+            logger.debug("Baseline stats: %sm, %s points",
+                        self.start_steam_distance, self.start_steam_points)
         else:
             self.start_steam_distance = None
             self.start_steam_points = None
@@ -259,13 +264,13 @@ class PlayerTracker:
 
             # If we don't have the journey ID cached, find it
             if not journey_id:
-                logger.info(f"Looking up timetable for train {activity['train_number']}...")
+                logger.info("Looking up timetable for train %s...", activity['train_number'])
                 journey_id = await self.simrail_tools_client.find_journey_by_train_number(
                     server_code, activity["train_number"]
                 )
                 if journey_id:
                     self.current_journey_id = journey_id
-                    logger.info(f"✓ Found timetable (journey {journey_id[:8]}...)")
+                    logger.info("✓ Found timetable (journey %s...)", journey_id[:8])
                 else:
                     logger.info(
                         f"⚠️  No timetable data available for train {activity['train_number']} "
@@ -284,7 +289,7 @@ class PlayerTracker:
             next_station = delays[0].station_name
             if self.last_next_station == next_station:
                 # Next station hasn't changed, don't spam the log
-                logger.debug(f"Next station still {next_station}, skipping display")
+                logger.debug("Next station still %s, skipping display", next_station)
                 return
 
             # Update last shown station
@@ -292,9 +297,9 @@ class PlayerTracker:
 
             # Show next 3-5 stations with their info
             upcoming_count = min(5, len(delays))
-            logger.info(f"\n{'─' * 80}")
-            logger.info(f"🚂 UPCOMING STATION EVENTS (next {upcoming_count} of {len(delays)}):")
-            logger.info(f"{'─' * 80}")
+            logger.info("\n%s", '─' * 80)
+            logger.info("🚂 UPCOMING STATION EVENTS (next %s of %s):", upcoming_count, len(delays))
+            logger.info("%s", '─' * 80)
 
             for i, delay in enumerate(delays[:upcoming_count], 1):
                 station_name = delay.station_name
@@ -304,14 +309,15 @@ class PlayerTracker:
                 time_type = delay.time_type
 
                 # Debug: log the values to understand what we're getting
-                logger.debug(f"Station: {station_name}, event_type: {event_type}, stop_type: {stop_type}")
+                logger.debug("Station: %s, event_type: %s, stop_type: %s",
+                            station_name, event_type, stop_type)
 
                 # Format datetime objects to HH:MM (server local time)
                 try:
                     scheduled = delay.scheduled_time.strftime("%H:%M")
                     realtime = delay.realtime_time.strftime("%H:%M")
                 except Exception as e:
-                    logger.debug(f"Error formatting times: {e}")
+                    logger.debug("Error formatting times: %s", e)
                     scheduled = "??:??"
                     realtime = "??:??"
 
@@ -367,10 +373,10 @@ class PlayerTracker:
                     f"{time_indicator}{dispatcher_info}"
                 )
 
-            logger.info(f"{'─' * 80}\n")
+            logger.info("%s\n", '─' * 80)
 
         except Exception as e:
-            logger.error(f"Error fetching delay info: {type(e).__name__} - {e}")
+            logger.error("Error fetching delay info: %s - %s", type(e).__name__, e)
             import traceback
             logger.debug(traceback.format_exc())
 
@@ -389,7 +395,7 @@ class PlayerTracker:
 
             return "🤖"  # Default to AI if station not found
         except Exception as e:
-            logger.debug(f"Could not check dispatcher: {e}")
+            logger.debug("Could not check dispatcher: %s", e)
             return ""
 
     async def sync_steam_stats(self):

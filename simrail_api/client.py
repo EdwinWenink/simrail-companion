@@ -25,7 +25,7 @@ class SimRailClient:
                     response.raise_for_status()
                     return await response.json()
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"SimRail API request failed: {e}")
+            logger.error("SimRail API request failed: %s", e)
             raise
 
     async def get_servers(self) -> list[Server]:

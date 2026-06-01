@@ -2,6 +2,9 @@ from typing import Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel
 
+# WIP transportTypes
+# NATIONAL_EXPRESS_TRAIN ┃ INTER_NATIONAL_EXPRESS_TRAIN ┃ INTER_REGIONAL_EXPRESS_TRAIN ┃ INTER_REGIONAL_TRAIN ┃ REGIONAL_FAST_TRAIN ┃ REGIONAL_TRAIN ┃ ADDITIONAL_TRAIN ┃ MANEUVER_TRAIN ┃ EMPTY_TRANSFER_TRAIN ┃ INTER_NATIONAL_CARGO_TRAIN ┃ NATIONAL_CARGO_TRAIN ┃ MAINTENANCE_TRAIN
+
 # Type aliases for reused Literals
 EventType = Literal["ARRIVAL", "DEPARTURE"]
 StopType = Literal["NONE", "TECHNICAL", "PASSENGER"]

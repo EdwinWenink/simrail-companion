@@ -70,7 +70,7 @@ class SteamClient:
                         return await response.json()
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 retries += 1
-                logger.warning(f"Steam request failed: {e}, retry {retries}/{max_retries}")
+                logger.warning("Steam request failed: %s, retry %s/%s", e, retries, max_retries)
 
                 if retries < max_retries:
                     await asyncio.sleep(retries)
@@ -94,7 +94,7 @@ class SteamClient:
 
             return players[0]
         except Exception as e:
-            logger.error(f"Error fetching player summary for {steam_id}: {e}")
+            logger.error("Error fetching player summary for %s: %s", steam_id, e)
             return None
 
     async def get_player_stats(self, steam_id: str) -> Optional[PlayerStats]:
@@ -112,7 +112,7 @@ class SteamClient:
 
             return player_stats
         except Exception as e:
-            logger.error(f"Error fetching player stats for {steam_id}: {e}")
+            logger.error("Error fetching player stats for %s: %s", steam_id, e)
             return None
 
     async def get_simrail_stats(self, steam_id: str) -> Optional[SimRailStats]:
