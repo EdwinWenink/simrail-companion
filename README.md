@@ -189,3 +189,8 @@ uv run show_summary.py 76561198012345678 --sessions 20
 ## SimRail App ID
 
 SimRail uses Steam App ID: `1422130`
+
+## Idea box
+
+- When player is still offline, use `GET /sit-journeys/v2/by-playable-departure` to list some upcoming possible journeys.
+

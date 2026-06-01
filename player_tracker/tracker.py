@@ -281,7 +281,7 @@ class PlayerTracker:
                 return
 
             # Check if next station changed since last poll
-            next_station = delays[0]["station_name"]
+            next_station = delays[0].station_name
             if self.last_next_station == next_station:
                 # Next station hasn't changed, don't spam the log
                 logger.debug(f"Next station still {next_station}, skipping display")
@@ -297,40 +297,33 @@ class PlayerTracker:
             logger.info(f"{'─' * 80}")
 
             for i, delay in enumerate(delays[:upcoming_count], 1):
-                station_name = delay["station_name"]
-                event_type = delay["event_type"]
-                delay_min = delay["delay_minutes"]
-                time_type = delay["time_type"]
+                station_name = delay.station_name
+                event_type = delay.event_type
+                stop_type = delay.stop_type
+                delay_min = delay.delay_minutes
+                time_type = delay.time_type
 
-                # Extract time from ISO format (server local time)
+                # Debug: log the values to understand what we're getting
+                logger.debug(f"Station: {station_name}, event_type: {event_type}, stop_type: {stop_type}")
+
+                # Format datetime objects to HH:MM (server local time)
                 try:
-                    # Handle different ISO formats
-                    scheduled_time = delay["scheduled_time"]
-                    realtime_time = delay["realtime_time"]
-
-                    # Split on T and take time portion
-                    if "T" in scheduled_time:
-                        scheduled = scheduled_time.split("T")[1][:5]
-                    else:
-                        scheduled = scheduled_time[:5]
-
-                    if "T" in realtime_time:
-                        realtime = realtime_time.split("T")[1][:5]
-                    else:
-                        realtime = realtime_time[:5]
-                except (KeyError, IndexError) as e:
-                    logger.debug(f"Error parsing times: {e}")
+                    scheduled = delay.scheduled_time.strftime("%H:%M")
+                    realtime = delay.realtime_time.strftime("%H:%M")
+                except Exception as e:
+                    logger.debug(f"Error formatting times: {e}")
                     scheduled = "??:??"
                     realtime = "??:??"
 
-                # Determine if it's a stop
-                if event_type.lower() == "pass":
+                # Determine if it's a stop based on stop_type
+                if stop_type == "NONE":
+                    # Pass-through station (no stop)
                     stop_indicator = "━━━"
                     action = "Pass"
-                elif event_type.lower() == "arrival":
+                elif event_type == "ARRIVAL":
                     stop_indicator = "[A]"
                     action = "Arrive"
-                elif event_type.lower() == "departure":
+                elif event_type == "DEPARTURE":
                     stop_indicator = "[D]"
                     action = "Depart"
                 else:

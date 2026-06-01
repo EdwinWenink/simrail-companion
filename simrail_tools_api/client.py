@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from datetime import datetime
 from typing import Optional
 
 import aiohttp
@@ -108,10 +107,10 @@ class SimRailToolsClient:
                 # (skip if fetch fails - journey may have just ended)
                 try:
                     full_journey = await self.get_journey(journey_id)
-                    if full_journey and full_journey.get("events"):
+                    if full_journey and full_journey.events:
                         # Check if ANY event has this train number (not just the first)
-                        for event in full_journey["events"]:
-                            number = event.get("transport", {}).get("number", "")
+                        for event in full_journey.events:
+                            number = event.transport.number
                             normalized_number = number.strip().lstrip('0') or number
 
                             if normalized_number == normalized_search or number == train_number:
@@ -132,7 +131,7 @@ class SimRailToolsClient:
         """Get full journey details including timetable."""
         try:
             data = await self._fetch(f"sit-journeys/v2/by-id/{journey_id}")
-            return data
+            return Journey(**data)
         except aiohttp.ClientResponseError as e:
             if e.status == 404:
                 logger.warning(f"Journey {journey_id} not found (404) - may have ended")
@@ -152,21 +151,8 @@ class SimRailToolsClient:
         We only calculate delay (difference between scheduled and realtime),
         not absolute time comparisons.
         """
-        # Parse times - they're in server local time, but we only care about the delta
-        scheduled_str = event["scheduledTime"].replace("Z", "")
-        realtime_str = event["realtimeTime"].replace("Z", "")
-
-        # Strip timezone info if present (we don't know the actual timezone)
-        if "+" in scheduled_str:
-            scheduled_str = scheduled_str.split("+")[0]
-        if "+" in realtime_str:
-            realtime_str = realtime_str.split("+")[0]
-
-        scheduled = datetime.fromisoformat(scheduled_str)
-        realtime = datetime.fromisoformat(realtime_str)
-
-        # Calculate delay (both times are in the same timezone, so the delta is correct)
-        delay_seconds = int((realtime - scheduled).total_seconds())
+        # Calculate delay - datetimes are already parsed by Pydantic
+        delay_seconds = int((event.realtimeTime - event.scheduledTime).total_seconds())
         delay_minutes = delay_seconds / 60
 
         if delay_seconds > 60:  # More than 1 minute late
@@ -177,14 +163,15 @@ class SimRailToolsClient:
             status = "on_time"
 
         return DelayInfo(
-            station_name=event["stopPlace"]["name"],
-            event_type=event["type"],
-            scheduled_time=event["scheduledTime"],
-            realtime_time=event["realtimeTime"],
+            station_name=event.stopPlace.name,
+            event_type=event.type,
+            scheduled_time=event.scheduledTime,
+            realtime_time=event.realtimeTime,
             delay_seconds=delay_seconds,
             delay_minutes=delay_minutes,
             status=status,
-            time_type=event["realtimeTimeType"],
+            time_type=event.realtimeTimeType,
+            stop_type=event.stopType,
         )
 
     async def get_journey_delays(
@@ -202,14 +189,14 @@ class SimRailToolsClient:
         if not journey:
             return []
 
-        events = journey.get("events", [])
+        events = journey.events
         delays = []
 
         if upcoming_only:
             # Find the index of the last REAL event
             last_real_index = -1
             for i, event in enumerate(events):
-                time_type = event.get("realtimeTimeType", "").upper()
+                time_type = event.realtimeTimeType.upper()
                 if time_type == "REAL":
                     last_real_index = i
 
@@ -255,13 +242,13 @@ class SimRailToolsClient:
 
         # Without knowing the server timezone, just use the first event as "next"
         next_event = delays[0] if delays else None
-        next_station_name = next_event["station_name"] if next_event else None
+        next_station_name = next_event.station_name if next_event else None
 
         result = {
             "journey_id": journey_id,
             "current_delay": next_event,
             "upcoming_events": delays[:5],  # Next 5 events
-            "total_events": len(journey.get("events", [])),
+            "total_events": len(journey.events),
         }
 
         if include_station_name and next_station_name:
