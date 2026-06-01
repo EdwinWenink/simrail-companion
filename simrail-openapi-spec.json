@@ -1,0 +1,2977 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "SimRailInformationTools (SIT) API",
+    "description" : "The SimRailInformationTools (SIT) API provides a comprehensive suite of endpoints designed to access detailed\ndata about various aspects of the SimRail ecosystem. This API offers functionalities to interact with vehicles,\nrailcars, journeys, users, dispatch posts, and more.\nInformation capabilities:\n - Vehicles and Railcars: Technical Specification, Journey Compositions, Usage in Journeys, etc.\n - Journeys: Live, Historic & Future Detail Data about Journeys, Finding/Resolving of Journeys, etc.\n - Servers: Live & Historic Information about Servers\n - Dispatch Posts: Live & Historic Information about Dispatch Posts\n - Points: Detail Information about Points for Journeys Timetables\n - Events: Websocket providing Live Data Changes for Journeys, Dispatch Posts and Servers\n",
+    "license" : {
+      "name" : "Creative Commons Attribution 4.0 International",
+      "url" : "https://creativecommons.org/licenses/by/4.0"
+    },
+    "version" : "2026.05.23.0752"
+  },
+  "servers" : [ {
+    "url" : "https://apis.simrail.tools",
+    "description" : "Default Backend"
+  } ],
+  "tags" : [ {
+    "name" : "vehicles-v2",
+    "description" : "SimRail Server Vehicle APIs (Version 2)"
+  }, {
+    "name" : "railcars-v1",
+    "description" : "SimRail Railcar APIs (Version 1)"
+  }, {
+    "name" : "dispatch-post-v2",
+    "description" : "SimRail Dispatch Post Data APIs (Version 2)"
+  }, {
+    "name" : "users-v2",
+    "description" : "SimRail User Data APIs (Version 2)"
+  }, {
+    "name" : "journeys-v2",
+    "description" : "SimRail Journey Data APIs (Version 2)"
+  }, {
+    "name" : "points-v1",
+    "description" : "SimRail Point Data APIs (Version 1)"
+  }, {
+    "name" : "maps-v1",
+    "description" : "SimRail Map Data APIs (Version 1)"
+  }, {
+    "name" : "servers-v2",
+    "description" : "SimRail Server Data APIs (Version 2)"
+  }, {
+    "name" : "boards-v2",
+    "description" : "SimRail Boards Data APIs (Version 2)"
+  } ],
+  "paths" : {
+    "/sit-users/v2/batch" : {
+      "post" : {
+        "tags" : [ "users-v2" ],
+        "summary" : "Get a batch of detailed user information (up to 250)",
+        "description" : "Get a batch of detailed user information (up to 250) in a single request. If an id is provided which can't be\nresolved to a user info, the id is skipped and there will be no reference to the id in the response array.\n",
+        "operationId" : "findUserDetails",
+        "requestBody" : {
+          "description" : "An array containing the base information (platform and id) of the users to resolve",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/components/schemas/UserDto"
+                },
+                "uniqueItems" : true
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The request was processed successfully",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SimRailUserDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The given request body is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-railcars/v1/by-ids" : {
+      "post" : {
+        "tags" : [ "railcars-v1" ],
+        "summary" : "Get a batch of railcars (up to 250) by their id",
+        "operationId" : "findRailcarsByIds",
+        "requestBody" : {
+          "description" : "An array containing the ids of the railcars to resolve",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string"
+                },
+                "uniqueItems" : true
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The railcars that were successfully resolved based on the given input ids",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RailcarDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-points/v1/by-ids" : {
+      "post" : {
+        "tags" : [ "points-v1" ],
+        "summary" : "Get a batch of points (up to 250) by their id",
+        "description" : "Get a batch of points (up to 250) in a single request. If an id is provided which doesn't have a point associated,\nthe id is skipped and there will be no reference to the id in the response array\n",
+        "operationId" : "findPointsById",
+        "requestBody" : {
+          "description" : "An array containing the ids of the points to resolve",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The points that were successfully resolved based on the given input ids",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PointInfoDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-journeys/v2/by-ids" : {
+      "post" : {
+        "tags" : [ "journeys-v2" ],
+        "summary" : "Get a batch of journeys (up to 250) by their id",
+        "operationId" : "findJourneysByIds",
+        "requestBody" : {
+          "description" : "An array containing the ids of the journeys to resolve",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string"
+                },
+                "uniqueItems" : true
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The journeys that were successfully resolved based on the given input ids",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/JourneyDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-vehicles/v2/by-journey/{id}" : {
+      "get" : {
+        "tags" : [ "vehicles-v2" ],
+        "summary" : "Get the vehicle composition of a journey",
+        "operationId" : "findVehicleCompositionByJourneyId",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The id of the journey to get the vehicle composition of",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "If-Modified-Since",
+          "in" : "header",
+          "description" : "If provided the response body is empty in case the data didn't change since the given date",
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time",
+            "examples" : [ "Wed, 21 Oct 2015 07:28:00 GMT" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The vehicle sequence for the journey with the given id was successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VehicleSequenceDto"
+                }
+              }
+            }
+          },
+          "304" : {
+            "description" : "The request was successful but the content was not modified since the last request"
+          },
+          "400" : {
+            "description" : "The given journey id is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No vehicle sequence for the journey with the given id is known"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-servers/v2/by-id/{id}" : {
+      "get" : {
+        "tags" : [ "servers-v2" ],
+        "summary" : "Get detail data about a single server by ID",
+        "operationId" : "findServerById",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The id of the server to get",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "If-Modified-Since",
+          "in" : "header",
+          "description" : "If provided the response body is empty in case the data didn't change since the given date",
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time",
+            "examples" : [ "Wed, 21 Oct 2015 07:28:00 GMT" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The server was successfully resolved based on the given id",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SimRailServerDto"
+                }
+              }
+            }
+          },
+          "304" : {
+            "description" : "The request was successful but the content was not modified since the last request"
+          },
+          "400" : {
+            "description" : "The given server ID is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No server with the given ID was found"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-servers/v2/by-code/{code}" : {
+      "get" : {
+        "tags" : [ "servers-v2" ],
+        "summary" : "Get detail data about a single server by code",
+        "operationId" : "findServerByCode",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "description" : "The code of the server to get",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        }, {
+          "name" : "If-Modified-Since",
+          "in" : "header",
+          "description" : "If provided the response body is empty in case the data didn't change since the given date",
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time",
+            "examples" : [ "Wed, 21 Oct 2015 07:28:00 GMT" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The server was successfully resolved based on the given server code",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SimRailServerDto"
+                }
+              }
+            }
+          },
+          "304" : {
+            "description" : "The request was successful but the content was not modified since the last request"
+          },
+          "400" : {
+            "description" : "The given server code is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No server with the given code was found"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-servers/v2/" : {
+      "get" : {
+        "tags" : [ "servers-v2" ],
+        "summary" : "List all registered servers",
+        "operationId" : "listServers",
+        "parameters" : [ {
+          "name" : "includeOffline",
+          "in" : "query",
+          "description" : "If servers that are offline should be included in the response",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "name" : "includeDeleted",
+          "in" : "query",
+          "description" : "If servers that are deleted should be included in the response",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The servers were successfully resolved based on the given filter parameters",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SimRailServerDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the given filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-railcars/v1/by-simrail-id" : {
+      "get" : {
+        "tags" : [ "railcars-v1" ],
+        "summary" : "Finds a single railcar using the given SimRail api id",
+        "operationId" : "findRailcarByApiName",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "query",
+          "description" : "The SimRail api id of the railcar to get the data of",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The railcar with the given id was successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RailcarDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No railcar can be found with the given id"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-railcars/v1/by-id/{id}" : {
+      "get" : {
+        "tags" : [ "railcars-v1" ],
+        "summary" : "Finds a single railcar using the given id",
+        "operationId" : "findRailcarById",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The id of the railcar to get the data of",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The railcar with the given id was successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RailcarDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No railcar can be found with the given id"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-points/v1/by-position" : {
+      "get" : {
+        "tags" : [ "points-v1" ],
+        "summary" : "Finds points that are located in a specified around around a given geo position",
+        "description" : "Finds points that are in the given radius around the given geo position. Results are sorted by their distance to\nthe given geo point, ASC (nearest point first).\n",
+        "operationId" : "findPointByPosition",
+        "parameters" : [ {
+          "name" : "latitude",
+          "in" : "query",
+          "description" : "Latitude from which to search in the given radius",
+          "required" : true,
+          "schema" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 90,
+            "minimum" : -90
+          }
+        }, {
+          "name" : "longitude",
+          "in" : "query",
+          "description" : "Longitude from which to search in the given radius",
+          "required" : true,
+          "schema" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 180,
+            "minimum" : -180
+          }
+        }, {
+          "name" : "radius",
+          "in" : "query",
+          "description" : "The radius to search around  position, in meters (defaults to 200m)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 10000,
+            "minimum" : 100
+          }
+        }, {
+          "name" : "countries",
+          "in" : "query",
+          "description" : "Optional list of countries in which the points may be located",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "pattern" : "[A-Z]{3}"
+            }
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "The maximum results to return (between 1 and 25, defaults to 10)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 25,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The search was successfully executed based on the given filter parameters",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PointInfoDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-points/v1/by-name/{searchQuery}" : {
+      "get" : {
+        "tags" : [ "points-v1" ],
+        "summary" : "Finds points whose name are matching the given search query",
+        "description" : "Fuzzy searches points by the given name search query. For example the search input 'Lazy' will return 'Łazy',\n'Łazy Łc', 'Łazy Ła' etc. Wildcard search patterns are not supported by this endpoint. Results are sorted by match\nwith the given search query, DESC (best match first).\n",
+        "operationId" : "findPointByName",
+        "parameters" : [ {
+          "name" : "searchQuery",
+          "in" : "path",
+          "description" : "The search query for the point (must be between 3 and 35 chars)",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^.{3,35}$"
+          }
+        }, {
+          "name" : "countries",
+          "in" : "query",
+          "description" : "Optional list of countries in which the points may be located",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "pattern" : "[A-Z]{3}"
+            }
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "The maximum results to return (between 1 and 25, defaults to 10)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 25,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The search was successfully executed based on the given search query",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PointInfoDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-points/v1/by-id/{id}" : {
+      "get" : {
+        "tags" : [ "points-v1" ],
+        "summary" : "Get the full data of a point by its id",
+        "operationId" : "findPointById",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The id of the point to get the data of",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The point with the given id was successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PointInfoDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No point can be found with the given id"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-points/v1/" : {
+      "get" : {
+        "tags" : [ "points-v1" ],
+        "summary" : "List all points that are registered",
+        "operationId" : "listPoints",
+        "parameters" : [ {
+          "name" : "countries",
+          "in" : "query",
+          "description" : "Optional list of countries in which the points may be located",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "pattern" : "[A-Z]{3}"
+            }
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "The page of elements to return, defaults to 1",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "The maximum items to return per page, defaults to 20",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The points were successfully resolved based on the given filter parameters",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaginatedResponseDtoPointInfoDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-maps/v1/polyline/by-journey/{id}" : {
+      "get" : {
+        "tags" : [ "maps-v1" ],
+        "summary" : "Get the polyline for a specific journey",
+        "operationId" : "findMapPolylineByJourney",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The id of the journey to get the polyline for",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "includeCancelled",
+          "in" : "query",
+          "description" : "If cancelled events should be included in the polyline",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "includeAdditional",
+          "in" : "query",
+          "description" : "If additional events should be included in the polyline",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "allowFallbackComputation",
+          "in" : "query",
+          "description" : "If a fallback polyline should be returned if a proper one is unavailable",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "Accept",
+          "in" : "header",
+          "description" : "Sets the content type to return, defaults to application/json but can be set\nto application/geo+json to get the polyline as a geojson feature collection\n",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "application/json",
+            "enum" : [ "application/json", "application/geo+json" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The polyline for the requested journey was successfully resolved",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MapJourneyRouteDto"
+                }
+              },
+              "application/geo+json" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No journey can be found with the given journey id"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-journeys/v2/by-vehicle" : {
+      "get" : {
+        "tags" : [ "journeys-v2" ],
+        "summary" : "Finds journeys that are using the given railcars in their vehicle composition",
+        "description" : "Finds journeys that use the given railcars in their vehicle composition on the given date. The results might be\nincomplete or incorrect for journeys that were not active yet, as the result data will be based on predictions\nand not the real composition of the journey.\n",
+        "operationId" : "findJourneysByRailcar",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "description" : "The page of elements to return, defaults to 1",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "The maximum items to return per page, defaults to 20",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "serverId",
+          "in" : "query",
+          "description" : "The id of the server to filter journeys on",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "date",
+          "in" : "query",
+          "description" : "The date of an event (ISO-8601), defaults to the current server date if omitted",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "railcars",
+          "in" : "query",
+          "description" : "The id of the railcars that must be included in the vehicle composition of the journey",
+          "required" : true,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            },
+            "maxItems" : 10,
+            "minItems" : 1,
+            "uniqueItems" : true
+          }
+        }, {
+          "name" : "journeyCategory",
+          "in" : "query",
+          "description" : "The category of the journey at the first playable event",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^[A-Z]{3}$"
+          }
+        }, {
+          "name" : "transportTypes",
+          "in" : "query",
+          "description" : "The transport types that are returned, defaults to all types if omitted",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+            },
+            "uniqueItems" : true
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The journeys were successfully resolved based on the given filter parameters",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaginatedResponseDtoJourneySummaryDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid or doesn't match the described grouping requirements",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-journeys/v2/by-playable-departure" : {
+      "get" : {
+        "tags" : [ "journeys-v2" ],
+        "summary" : "Find journeys that become playable in the provided time range",
+        "description" : "Finds journeys that become playable in the provided time range. Optionally additional filter parameters can be\nprovided to narrow down the results. The provided time range must be at least 1 minute and at most 60 minutes\nlong. If the start time is omitted it defaults to the current server time, if the end time is omitted it defaults\nto the start time plus 15 minutes.\n",
+        "operationId" : "findJourneysByPlayableDeparture",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "description" : "The page of elements to return, defaults to 1",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "The maximum items to return per page, defaults to 20",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "serverId",
+          "in" : "query",
+          "description" : "The id of the server to filter journeys on",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "timeStart",
+          "in" : "query",
+          "description" : "The start of the time range (ISO-8601 without offset), defaults to the current server time if omitted",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "timeEnd",
+          "in" : "query",
+          "description" : "The end of the time range (ISO-8601 without offset), defaults to start plus 15 minutes if omitted",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "journeyCategory",
+          "in" : "query",
+          "description" : "The category of the journey at the first playable event",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^[A-Z]{3}$"
+          }
+        }, {
+          "name" : "transportTypes",
+          "in" : "query",
+          "description" : "The transport types that are returned, defaults to all types if omitted",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+            },
+            "uniqueItems" : true
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The journeys were successfully resolved based on the given filter parameters",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaginatedResponseDtoJourneySummaryWithEventDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid or doesn't match the described requirements",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-journeys/v2/by-id/{id}" : {
+      "get" : {
+        "tags" : [ "journeys-v2" ],
+        "summary" : "Returns a single journey by the given id",
+        "operationId" : "findJourneyById",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The id of the journey to return",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "If-Modified-Since",
+          "in" : "header",
+          "description" : "If provided the response body is empty in case the data didn't change since the given date",
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time",
+            "examples" : [ "Wed, 21 Oct 2015 07:28:00 GMT" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The journey with the given id was successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JourneyDto"
+                }
+              }
+            }
+          },
+          "304" : {
+            "description" : "The request was successful but the content was not modified since the last request"
+          },
+          "400" : {
+            "description" : "The given id or one of the filter parameters did not match the requirements",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No journey can be found with the given journey id"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-journeys/v2/by-event" : {
+      "get" : {
+        "tags" : [ "journeys-v2" ],
+        "summary" : "Find journeys based on one journey event matching the given search criteria",
+        "description" : "Find journeys based on one journey event matching the given search criteria, for example:\n- Searching for journey number '40180' will return 'EIP 40180', 'ROJ 40180' etc.\n- Searching for 'PWJ 146051' will also return 'ROJ 19369' that starts as 'ROJ' but switches to 'PWJ' along its route\n- Searching for 'RE1' at '2024-12-06' will also return journeys that start at '2024-12-05' and continue on '2024-12-06'\nMultiple filter parameter can be provided and are linked in a logical AND chain. At least the journey number or\njourney line must be provided.\n",
+        "operationId" : "findJourneysByEvent",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "description" : "The page of elements to return, defaults to 1",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "The maximum items to return per page, defaults to 20",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "serverId",
+          "in" : "query",
+          "description" : "The id of the server to filter journeys on",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "date",
+          "in" : "query",
+          "description" : "The date of an event (ISO-8601 without timezone), defaults to the current server date if omitted",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "line",
+          "in" : "query",
+          "description" : "The line at an event, at least journeyNumber or line must be provided",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "pattern" : ".+"
+          }
+        }, {
+          "name" : "journeyNumber",
+          "in" : "query",
+          "description" : "The number at an event, at least journeyNumber or line must be provided",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^.{4,6}$"
+          }
+        }, {
+          "name" : "journeyCategory",
+          "in" : "query",
+          "description" : "The category at an event",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^[A-Z]{3}$"
+          }
+        }, {
+          "name" : "transportTypes",
+          "in" : "query",
+          "description" : "The transport types that are returned, defaults to all types if omitted",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+            },
+            "uniqueItems" : true
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The journeys were successfully resolved based on the given filter parameters",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaginatedResponseDtoJourneySummaryDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid or doesn't match the described grouping requirements",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-journeys/v2/active" : {
+      "get" : {
+        "tags" : [ "journeys-v2" ],
+        "summary" : "Get all journeys that are currently active on a server",
+        "description" : "Get descriptive information about all journeys that are currently active on a server. Data returned by this\nendpoint might update irregularly. This endpoint shouldn't be used to poll journey updates, use the event system\nSIT-Events instead.\n",
+        "operationId" : "listActiveJourneys",
+        "parameters" : [ {
+          "name" : "serverId",
+          "in" : "query",
+          "description" : "The id of the server to filter journeys on",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "If-Modified-Since",
+          "in" : "header",
+          "description" : "If provided the response body is empty in case the data didn't change since the given date",
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time",
+            "examples" : [ "Wed, 21 Oct 2015 07:28:00 GMT" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The active journeys of the given server were successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/JourneySummaryWithLiveDataDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the filter parameters is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-dispatch-posts/v2/find" : {
+      "get" : {
+        "tags" : [ "dispatch-post-v2" ],
+        "summary" : "Find dispatch posts based on the given filter parameters",
+        "description" : "Finds dispatch posts paginated based on the given filter parameters. If multiple filter parameters are provided,\nthey get chained into a logical AND chain. If no filter parameters are provided, this endpoint acts like a\nlisting endpoint.\n",
+        "operationId" : "findDispatchPosts",
+        "parameters" : [ {
+          "name" : "serverId",
+          "in" : "query",
+          "description" : "The id of the server on which the dispatch posts should be located",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "difficulty",
+          "in" : "query",
+          "description" : "The difficulty of the dispatch posts to return (0-5)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 5,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "pointId",
+          "in" : "query",
+          "description" : "The id of the point with which the dispatch post is associated",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "deleted",
+          "in" : "query",
+          "description" : "Filter for the deletion state of the dispatch post",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "The page of elements to return, defaults to 1",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "The maximum items to return per page, defaults to 20",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 250,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The dispatch posts were successfully resolved based on the given filter parameters",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaginatedResponseDtoDispatchPostInfoDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One or multiple of the given filter parameters were invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-dispatch-posts/v2/by-id/{id}" : {
+      "get" : {
+        "tags" : [ "dispatch-post-v2" ],
+        "summary" : "Get the detail information of a single dispatch post by its id",
+        "operationId" : "findDispatchPostById",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The id of the dispatch post to get",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "If-Modified-Since",
+          "in" : "header",
+          "description" : "If provided the response body is empty in case the data didn't change since the given date",
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time",
+            "examples" : [ "Wed, 21 Oct 2015 07:28:00 GMT" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The dispatch post was successfully resolved based on the given id",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DispatchPostInfoDto"
+                }
+              }
+            }
+          },
+          "304" : {
+            "description" : "The request was successful but the content was not modified since the last request"
+          },
+          "400" : {
+            "description" : "The given dispatch post id is invalid",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No dispatch post with the given id exists"
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-boards/v2/departures" : {
+      "get" : {
+        "tags" : [ "boards-v2" ],
+        "summary" : "Get all departures within a specified timespan at a specified point",
+        "description" : "Lists all journeys that are departing from the specified point on the specified server within the given time span.\nBy default, a time span of 30 minutes is returned, starting at the current server time, unless otherwise specified.\nResults are sorted by realtime time information by default. A minimum time span of 5 minutes and a maximum time\nspan of 6 hours can be requested. The start time can be 1 day in the future and 90 days in the past.\n",
+        "operationId" : "listBoardDepartures",
+        "parameters" : [ {
+          "name" : "serverId",
+          "in" : "query",
+          "description" : "The id of the server to get the board on",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "pointId",
+          "in" : "query",
+          "description" : "The id of the point to get the board of",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "timeStart",
+          "in" : "query",
+          "description" : "The start time for the board, if omitted current server time will be used",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "timeEnd",
+          "in" : "query",
+          "description" : "The end time for the board, if omitted the start time plus 30 minutes will be used",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "transportTypes",
+          "in" : "query",
+          "description" : "Filter for transports that should be returned, if omitted all transports will be returned",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+            },
+            "uniqueItems" : true
+          }
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "description" : "Sort order of board entries, of omitted entries will be sorted by realtime time information",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "REALTIME_TIME", "SCHEDULED_TIME" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The departure board entries were successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/BoardEntryDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the given filter parameters is invalid or doesn't comply to the described constraints",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sit-boards/v2/arrivals" : {
+      "get" : {
+        "tags" : [ "boards-v2" ],
+        "summary" : "Get all arrivals within a specified timespan at a specified point",
+        "description" : "Lists all journeys that are arriving at the specified point on the specified server within the given time span.\nBy default, a time span of 30 minutes is returned, starting at the current server time, unless otherwise specified.\nResults are sorted by realtime time information by default. A minimum time span of 5 minutes and a maximum time\nspan of 6 hours can be requested. The start time can be 1 day in the future and 90 days in the past.\n",
+        "operationId" : "listBoardArrivals",
+        "parameters" : [ {
+          "name" : "serverId",
+          "in" : "query",
+          "description" : "The id of the server to get the board on",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "pointId",
+          "in" : "query",
+          "description" : "The id of the point to get the board of",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "timeStart",
+          "in" : "query",
+          "description" : "The start time for the board, if omitted current server time will be used",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "timeEnd",
+          "in" : "query",
+          "description" : "The end time for the board, if omitted the start time plus 30 minutes will be used",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "transportTypes",
+          "in" : "query",
+          "description" : "Filter for transports that should be returned, if omitted all transports will be returned",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+            },
+            "uniqueItems" : true
+          }
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "description" : "Sort order of board entries, of omitted entries will be sorted by realtime time information",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "REALTIME_TIME", "SCHEDULED_TIME" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The arrival board entries were successfully resolved",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/BoardEntryDto"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "One of the given filter parameters is invalid or doesn't comply to the described constraints",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "An internal error occurred while processing the request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "UserDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "description" : "The id of the user"
+          },
+          "platform" : {
+            "type" : "string",
+            "description" : "The platform the user is playing on",
+            "enum" : [ "STEAM", "XBOX" ]
+          }
+        },
+        "required" : [ "id", "platform" ]
+      },
+      "SimRailUserDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "description" : "The id of the user"
+          },
+          "platform" : {
+            "type" : "string",
+            "description" : "The platform the user is playing on",
+            "enum" : [ "STEAM", "XBOX" ]
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The name of the user",
+            "minLength" : 1
+          },
+          "profileUrl" : {
+            "type" : "string",
+            "description" : "The url to the profile of the user",
+            "minLength" : 1
+          },
+          "avatarUrl" : {
+            "type" : "string",
+            "description" : "The url to the avatar of the user",
+            "minLength" : 1
+          },
+          "location" : {
+            "type" : [ "string", "null" ],
+            "description" : "The location of the user (in some form), null if not known"
+          }
+        },
+        "required" : [ "avatarUrl", "id", "name", "platform", "profileUrl" ]
+      },
+      "RailcarDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The unique identifier of the railcar"
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "The display name of the railcar",
+            "minLength" : 1
+          },
+          "name" : {
+            "type" : [ "string", "null" ],
+            "description" : "The baptismal name of the locomotive / wagon, null if none"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "The grouping type of the railcar",
+            "enum" : [ "WAGON", "LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT" ]
+          },
+          "typeIdentifier" : {
+            "type" : "string",
+            "description" : "The type identifier of the railcar",
+            "minLength" : 1
+          },
+          "requiredDlcId" : {
+            "type" : [ "string", "null" ],
+            "description" : "The id of the DLC that is required for the railcar, null if included in the base game"
+          },
+          "designation" : {
+            "type" : "string",
+            "description" : "The designation of the railcar",
+            "minLength" : 1
+          },
+          "producer" : {
+            "type" : "string",
+            "description" : "The producer of the railcar",
+            "minLength" : 1
+          },
+          "productionYears" : {
+            "type" : "string",
+            "description" : "The years in which the railcar was produced, can be range or single year",
+            "minLength" : 1
+          },
+          "weight" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The weight of the railcar in tons",
+            "minimum" : 0
+          },
+          "width" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The width of the railcar in meters",
+            "minimum" : 0
+          },
+          "length" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The length of the railcar in meters",
+            "minimum" : 0
+          },
+          "maxSpeed" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The maximum allowed speed of the railcar",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "designation", "displayName", "id", "length", "maxSpeed", "producer", "productionYears", "type", "typeIdentifier", "weight", "width" ]
+      },
+      "GeoPositionDto" : {
+        "type" : "object",
+        "properties" : {
+          "latitude" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The latitude of the position"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The longitude of the position"
+          }
+        },
+        "required" : [ "latitude", "longitude" ]
+      },
+      "PointInfoDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the point"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The name of the point",
+            "minLength" : 1
+          },
+          "country" : {
+            "type" : "string",
+            "description" : "The ISO 3166-1 alpha-3 country code where the point is located",
+            "maxLength" : 3,
+            "minLength" : 3
+          },
+          "position" : {
+            "$ref" : "#/components/schemas/GeoPositionDto",
+            "description" : "The position where the point located"
+          },
+          "uicRef" : {
+            "type" : [ "string", "null" ],
+            "description" : "The UIC reference of the point, might not null in case it is unknown"
+          },
+          "osmNodeId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The OSM node id of the point"
+          },
+          "maxSpeed" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The maximum speed any journey can drive at the point",
+            "minimum" : 0
+          },
+          "stopPlace" : {
+            "type" : "boolean",
+            "description" : "Indicates if the point is a stop place (without switches) or a full station"
+          },
+          "platforms" : {
+            "type" : "array",
+            "description" : "The platforms at the point at which a passenger change can happen",
+            "items" : {
+              "$ref" : "#/components/schemas/PointPlatformInfoDto"
+            }
+          }
+        },
+        "required" : [ "country", "id", "maxSpeed", "name", "osmNodeId", "platforms", "position", "stopPlace" ]
+      },
+      "PointPlatformInfoDto" : {
+        "type" : "object",
+        "properties" : {
+          "track" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The track where the platform is located",
+            "minimum" : 1
+          },
+          "platform" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The number of the platform",
+            "minimum" : 1
+          }
+        },
+        "required" : [ "platform", "track" ]
+      },
+      "JourneyDto" : {
+        "type" : "object",
+        "properties" : {
+          "journeyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the journey"
+          },
+          "serverId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the server where the journey takes place"
+          },
+          "lastUpdated" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey data was last updated"
+          },
+          "firstSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was first seen, null if the journey wasn't active yet"
+          },
+          "lastSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was last seen, null if the journey is still or wasn't active"
+          },
+          "journeyCancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the journey was cancelled"
+          },
+          "liveData" : {
+            "$ref" : "#/components/schemas/JourneyLiveDataDto",
+            "description" : "Current live information about the journey, omitted from the response if the journey is not active"
+          },
+          "events" : {
+            "type" : "array",
+            "description" : "The events along the route of the journey",
+            "items" : {
+              "$ref" : "#/components/schemas/JourneyEventDto"
+            }
+          }
+        },
+        "required" : [ "events", "journeyCancelled", "journeyId", "lastUpdated", "serverId" ]
+      },
+      "JourneyEventDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the event"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "The type of the event",
+            "enum" : [ "ARRIVAL", "DEPARTURE" ]
+          },
+          "cancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the event was cancelled, note that events can be additional and cancelled"
+          },
+          "additional" : {
+            "type" : "boolean",
+            "description" : "Indicates if the event is additional (not part of the scheduled route)"
+          },
+          "stopPlace" : {
+            "$ref" : "#/components/schemas/JourneyStopPlaceDto",
+            "description" : "Information about the stop place where the event takes place"
+          },
+          "scheduledTime" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Scheduled time of the event in local server time (ISO-8601)"
+          },
+          "realtimeTime" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Best known time of the in local server time (ISO-8601), precision is described by the time type field"
+          },
+          "realtimeTimeType" : {
+            "type" : "string",
+            "description" : "The precision of the realtime time of the event",
+            "enum" : [ "SCHEDULE", "PREDICTION", "REAL" ]
+          },
+          "stopType" : {
+            "type" : "string",
+            "description" : "The scheduled stop type for the journey at the event",
+            "enum" : [ "NONE", "TECHNICAL", "PASSENGER" ]
+          },
+          "scheduledPassengerStop" : {
+            "$ref" : "#/components/schemas/JourneyStopInfoDto",
+            "description" : "Information about the scheduled passenger stop, omitted if no passenger stop is scheduled"
+          },
+          "realtimePassengerStop" : {
+            "$ref" : "#/components/schemas/JourneyStopInfoDto",
+            "description" : "Realtime information about the passenger stop, omitted if the event didn't happen / didn't stop at a platform"
+          },
+          "transport" : {
+            "$ref" : "#/components/schemas/JourneyTransportDto",
+            "description" : "Information about the transport at the event"
+          }
+        },
+        "required" : [ "additional", "cancelled", "id", "realtimeTime", "realtimeTimeType", "scheduledTime", "stopPlace", "stopType", "transport", "type" ]
+      },
+      "JourneyLiveDataDto" : {
+        "type" : "object",
+        "properties" : {
+          "speed" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The current, rounded speed of the journey",
+            "minimum" : 0
+          },
+          "position" : {
+            "$ref" : "#/components/schemas/GeoPositionDto",
+            "description" : "The current position of the journey"
+          },
+          "driver" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/UserDto",
+            "description" : "The current driver of the journey"
+          },
+          "nextSignal" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/JourneySignalDto",
+            "description" : "The signal in front of the journey, null in case it is too far away or doesn't exist"
+          }
+        },
+        "required" : [ "position", "speed" ]
+      },
+      "JourneySignalDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "description" : "The id (name) of the signal",
+            "minLength" : 1
+          },
+          "maxSpeed" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "The allowed speed of passing the signal, null if no speed reduction",
+            "minimum" : 0
+          },
+          "distance" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The distance of the journey to the signal, in 10 meter steps",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "distance", "id" ]
+      },
+      "JourneyStopInfoDto" : {
+        "type" : "object",
+        "properties" : {
+          "platform" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The platform of the passenger change",
+            "minimum" : 1
+          },
+          "track" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The track of the passenger change",
+            "minimum" : 1
+          }
+        },
+        "required" : [ "platform", "track" ]
+      },
+      "JourneyStopPlaceDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the stop place"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The name of the stop place",
+            "minLength" : 1
+          },
+          "position" : {
+            "$ref" : "#/components/schemas/GeoPositionDto",
+            "description" : "The position where the stop place is located"
+          },
+          "stopPlace" : {
+            "type" : "boolean",
+            "description" : "Indicates if the point is a stop place (without switches) or a full station"
+          },
+          "inPlayableBorder" : {
+            "type" : "boolean",
+            "description" : "If the stop place is within the playable border of the map"
+          }
+        },
+        "required" : [ "id", "inPlayableBorder", "name", "position", "stopPlace" ]
+      },
+      "JourneyTransportDto" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "description" : "The category of the transport",
+            "minLength" : 1
+          },
+          "categoryExternal" : {
+            "type" : [ "string", "null" ],
+            "description" : "The external category of the transport (for example internal can be RPJ, external IR), null if the same as the internal category"
+          },
+          "number" : {
+            "type" : "string",
+            "description" : "The number of the transport",
+            "minLength" : 1
+          },
+          "line" : {
+            "type" : [ "string", "null" ],
+            "description" : "The line of the transport, null in case no line is associated with the transport"
+          },
+          "label" : {
+            "type" : [ "string", "null" ],
+            "description" : "The label of the transport, for example the marketing name or product name of the transport"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "The higher-level category of the transport",
+            "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+          },
+          "maxSpeed" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The maximum speed (in km/h) of the journey is allowed to drive at the associated point"
+          }
+        },
+        "required" : [ "category", "maxSpeed", "number", "type" ]
+      },
+      "VehicleDto" : {
+        "type" : "object",
+        "properties" : {
+          "indexInGroup" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The index (0 based) where the vehicle is located in the composition",
+            "minimum" : 0
+          },
+          "loadWeight" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "The load weight of the vehicle, can be null in case nothing is loaded"
+          },
+          "load" : {
+            "type" : [ "string", "null" ],
+            "description" : "The load of the vehicle, can be null in case nothing is loaded",
+            "enum" : [ "TIE", "T_BEAM", "PIPELINE", "CONTAINER", "TREE_TRUNK", "WOODEN_BEAM", "METAL_SHEET", "STEEL_CIRCLE", "CONCRETE_SLAB", "GAS_CONTAINER", "PETROL", "ETHANOL", "CRUDE_OIL", "HEATING_OIL", "COAL", "SAND", "BALLAST", "WOOD_LOGS", "UNKNOWN" ]
+          },
+          "railcar" : {
+            "$ref" : "#/components/schemas/RailcarDto",
+            "description" : "Summary information about the railcar used for this vehicle"
+          }
+        },
+        "required" : [ "indexInGroup", "railcar" ]
+      },
+      "VehicleSequenceDto" : {
+        "type" : "object",
+        "properties" : {
+          "journeyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the journey associated with the vehicle composition"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "The status of the vehicle composition",
+            "enum" : [ "REAL", "PREDICTION", "UNKNOWN" ]
+          },
+          "lastUpdated" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The time (ISO-8601 with offset) when the vehicle data was last updated"
+          },
+          "vehicles" : {
+            "type" : "array",
+            "description" : "The vehicles that are in the composition",
+            "items" : {
+              "$ref" : "#/components/schemas/VehicleDto"
+            }
+          }
+        },
+        "required" : [ "journeyId", "lastUpdated", "status", "vehicles" ]
+      },
+      "SimRailServerDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the server"
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "The code of the server",
+            "minLength" : 1
+          },
+          "utcOffsetHours" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The offset of the server time from utc in hours"
+          },
+          "region" : {
+            "type" : "string",
+            "description" : "The region where the server is located",
+            "enum" : [ "ASIA", "EUROPE", "US_NORTH" ]
+          },
+          "tags" : {
+            "type" : "array",
+            "description" : "Tags of the server, for example providing detail information about the moderation status",
+            "items" : {
+              "type" : "string"
+            },
+            "uniqueItems" : true
+          },
+          "spokenLanguage" : {
+            "type" : [ "string", "null" ],
+            "description" : "The language spoken on the server, null for all languages"
+          },
+          "scenery" : {
+            "type" : "string",
+            "description" : "The scenery (map part) that is available on the server",
+            "enum" : [ "FULL", "WARSAW_LODZ_PSARY", "WARSAW_LODZ_KRAKOW", "WARSAW_LODZ_KATOWICE", "WARSAW_KATOWICE_KRAKOW", "KATOWICE_PSARY_KOZLOW" ]
+          },
+          "lastUpdated" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the data of the server was last updated"
+          },
+          "registeredSince" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the server was initially registered in the SimRail backend"
+          },
+          "online" : {
+            "type" : "boolean",
+            "description" : "If the server was online during the last collection"
+          },
+          "deleted" : {
+            "type" : "boolean",
+            "description" : "If the server is no longer registered in the SimRail backend"
+          }
+        },
+        "required" : [ "code", "deleted", "id", "lastUpdated", "online", "region", "registeredSince", "scenery", "tags", "utcOffsetHours" ]
+      },
+      "PaginatedResponseDtoPointInfoDto" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "description" : "The items that are one the requested page",
+            "items" : {
+              "$ref" : "#/components/schemas/PointInfoDto"
+            }
+          },
+          "morePages" : {
+            "type" : "boolean",
+            "description" : "Indicates if more pages are available and can be loaded"
+          }
+        },
+        "required" : [ "items", "morePages" ]
+      },
+      "MapJourneyRouteDto" : {
+        "type" : "object",
+        "properties" : {
+          "journeyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the journey to which the waypoints apply"
+          },
+          "stops" : {
+            "type" : "array",
+            "description" : "The stops along the journey route",
+            "items" : {
+              "$ref" : "#/components/schemas/JourneyStopPlaceDto"
+            }
+          },
+          "polyline" : {
+            "type" : "array",
+            "description" : "The waypoints along the journey route",
+            "items" : {
+              "$ref" : "#/components/schemas/GeoPositionDto"
+            }
+          }
+        },
+        "required" : [ "journeyId", "polyline", "stops" ]
+      },
+      "JourneyStopPlaceSummaryDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the stop place"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The name of the stop place",
+            "minLength" : 1
+          },
+          "inPlayableBorder" : {
+            "type" : "boolean",
+            "description" : "If the stop place is within the playable border of the map"
+          }
+        },
+        "required" : [ "id", "inPlayableBorder", "name" ]
+      },
+      "JourneySummaryDto" : {
+        "type" : "object",
+        "properties" : {
+          "journeyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the journey"
+          },
+          "serverId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the server where the journey takes place"
+          },
+          "firstSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was first seen, null if the journey wasn't active yet"
+          },
+          "lastSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was last seen, null if the journey is still or wasn't active"
+          },
+          "journeyCancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the journey was cancelled"
+          },
+          "originEvent" : {
+            "$ref" : "#/components/schemas/JourneyTerminalEventDto",
+            "description" : "The origin (first) event of the journey"
+          },
+          "destinationEvent" : {
+            "$ref" : "#/components/schemas/JourneyTerminalEventDto",
+            "description" : "The destination (last) event of the journey"
+          }
+        },
+        "required" : [ "destinationEvent", "journeyCancelled", "journeyId", "originEvent", "serverId" ]
+      },
+      "JourneyTerminalEventDto" : {
+        "type" : "object",
+        "properties" : {
+          "stopPlace" : {
+            "$ref" : "#/components/schemas/JourneyStopPlaceSummaryDto",
+            "description" : "The stop place associated with the event"
+          },
+          "scheduledTime" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The scheduled time (ISO-8601) in local server time of the event"
+          },
+          "transport" : {
+            "$ref" : "#/components/schemas/JourneyTransportSummaryDto",
+            "description" : "The transport used at the event"
+          },
+          "cancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the event was cancelled"
+          }
+        },
+        "required" : [ "cancelled", "scheduledTime", "stopPlace", "transport" ]
+      },
+      "JourneyTransportSummaryDto" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "description" : "The external category of the transport",
+            "minLength" : 1
+          },
+          "categoryExternal" : {
+            "type" : [ "string", "null" ],
+            "description" : "The external category of the transport (for example internal can be RPJ, external IR), null if the same as the internal category"
+          },
+          "number" : {
+            "type" : "string",
+            "description" : "The number of the transport",
+            "minLength" : 1
+          },
+          "line" : {
+            "type" : [ "string", "null" ],
+            "description" : "The line of the transport, null in case no line is associated with the transport"
+          },
+          "label" : {
+            "type" : [ "string", "null" ],
+            "description" : "The label of the transport, for example the marketing name or product name of the transport"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "The higher-level category of the transport",
+            "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+          }
+        },
+        "required" : [ "category", "number", "type" ]
+      },
+      "PaginatedResponseDtoJourneySummaryDto" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "description" : "The items that are one the requested page",
+            "items" : {
+              "$ref" : "#/components/schemas/JourneySummaryDto"
+            }
+          },
+          "morePages" : {
+            "type" : "boolean",
+            "description" : "Indicates if more pages are available and can be loaded"
+          }
+        },
+        "required" : [ "items", "morePages" ]
+      },
+      "JourneyEventDescriptorDto" : {
+        "type" : "object",
+        "properties" : {
+          "stopPlace" : {
+            "$ref" : "#/components/schemas/JourneyStopPlaceSummaryDto",
+            "description" : "The stop place associated with the event"
+          },
+          "scheduledTime" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The scheduled time in local server time (ISO-8601) of the event"
+          },
+          "cancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the event was cancelled"
+          }
+        },
+        "required" : [ "cancelled", "scheduledTime", "stopPlace" ]
+      },
+      "JourneySummaryWithEventDto" : {
+        "type" : "object",
+        "properties" : {
+          "journeyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the journey"
+          },
+          "serverId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the server where the journey takes place"
+          },
+          "firstSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was first seen, null if the journey wasn't active yet"
+          },
+          "lastSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was last seen, null if the journey is still or wasn't active"
+          },
+          "journeyCancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the journey was cancelled"
+          },
+          "originEvent" : {
+            "$ref" : "#/components/schemas/JourneyTerminalEventDto",
+            "description" : "The origin (first) event of the journey"
+          },
+          "destinationEvent" : {
+            "$ref" : "#/components/schemas/JourneyTerminalEventDto",
+            "description" : "The destination (last) event of the journey"
+          },
+          "event" : {
+            "$ref" : "#/components/schemas/JourneyEventDescriptorDto",
+            "description" : "An event of the journey. The exact nature of this event depends on the context it's returned in"
+          }
+        },
+        "required" : [ "destinationEvent", "event", "journeyCancelled", "journeyId", "originEvent", "serverId" ]
+      },
+      "PaginatedResponseDtoJourneySummaryWithEventDto" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "description" : "The items that are one the requested page",
+            "items" : {
+              "$ref" : "#/components/schemas/JourneySummaryWithEventDto"
+            }
+          },
+          "morePages" : {
+            "type" : "boolean",
+            "description" : "Indicates if more pages are available and can be loaded"
+          }
+        },
+        "required" : [ "items", "morePages" ]
+      },
+      "JourneySummaryWithLiveDataDto" : {
+        "type" : "object",
+        "properties" : {
+          "journeyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the journey"
+          },
+          "serverId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The identifier of the server where the journey takes place"
+          },
+          "firstSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was first seen, null if the journey wasn't active yet"
+          },
+          "lastSeenTime" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The instant (ISO-8601) when the journey was last seen, null if the journey is still or wasn't active"
+          },
+          "journeyCancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the journey was cancelled"
+          },
+          "originEvent" : {
+            "$ref" : "#/components/schemas/JourneyTerminalEventDto",
+            "description" : "The origin (first) event of the journey"
+          },
+          "destinationEvent" : {
+            "$ref" : "#/components/schemas/JourneyTerminalEventDto",
+            "description" : "The destination (last) event of the journey"
+          },
+          "liveData" : {
+            "$ref" : "#/components/schemas/JourneyLiveDataDto",
+            "description" : "The live data about the journey"
+          }
+        },
+        "required" : [ "destinationEvent", "journeyCancelled", "journeyId", "liveData", "originEvent", "serverId" ]
+      },
+      "DispatchPostInfoDto" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the dispatch post"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The name of the dispatch post",
+            "minLength" : 1
+          },
+          "pointId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the point where the dispatch post is located"
+          },
+          "serverId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the server for which the dispatch post info is valid"
+          },
+          "lastUpdated" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The time (ISO-8601 instant) when the dispatch post was last updated"
+          },
+          "registeredSince" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The time (ISO-8601 instant) when the dispatch post was registered in the SimRail backend"
+          },
+          "position" : {
+            "$ref" : "#/components/schemas/GeoPositionDto",
+            "description" : "The position where the dispatch post is located"
+          },
+          "images" : {
+            "type" : "array",
+            "description" : "A list of image urls displaying the dispatch post",
+            "items" : {
+              "type" : "string"
+            },
+            "uniqueItems" : true
+          },
+          "difficulty" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The difficulty rating of the dispatch post, from 1 (easy) to 5 (hard)",
+            "maximum" : 5,
+            "minimum" : 0
+          },
+          "realtimeData" : {
+            "$ref" : "#/components/schemas/DispatchPostRealtimeDataDto",
+            "description" : "Realtime information about the dispatch post"
+          },
+          "deleted" : {
+            "type" : "boolean",
+            "description" : "Indicates if the dispatch post was deleted in the SimRail backend"
+          }
+        },
+        "required" : [ "deleted", "difficulty", "id", "images", "lastUpdated", "name", "pointId", "position", "realtimeData", "registeredSince", "serverId" ]
+      },
+      "DispatchPostRealtimeDataDto" : {
+        "type" : "object",
+        "properties" : {
+          "dispatcher" : {
+            "$ref" : "#/components/schemas/UserDto",
+            "description" : "The user that is currently dispatching the post"
+          }
+        }
+      },
+      "PaginatedResponseDtoDispatchPostInfoDto" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "description" : "The items that are one the requested page",
+            "items" : {
+              "$ref" : "#/components/schemas/DispatchPostInfoDto"
+            }
+          },
+          "morePages" : {
+            "type" : "boolean",
+            "description" : "Indicates if more pages are available and can be loaded"
+          }
+        },
+        "required" : [ "items", "morePages" ]
+      },
+      "BoardEntryDto" : {
+        "type" : "object",
+        "properties" : {
+          "journeyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the journey arriving/departing at/from the requested point"
+          },
+          "eventId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The id of the arrival/departure event at the requested point"
+          },
+          "cancelled" : {
+            "type" : "boolean",
+            "description" : "Indicates if the event was cancelled, note that events can be additional and cancelled"
+          },
+          "additional" : {
+            "type" : "boolean",
+            "description" : "Indicates if the event is additional (not part of the scheduled route)"
+          },
+          "scheduledTime" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Scheduled time of the event (ISO-8601) in local server time"
+          },
+          "realtimeTime" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Best known time of the event (ISO-8601) in local server time, precision is described by the time type field"
+          },
+          "realtimeTimeType" : {
+            "type" : "string",
+            "description" : "The precision of the realtime time of the event",
+            "enum" : [ "SCHEDULE", "PREDICTION", "REAL" ]
+          },
+          "stopType" : {
+            "type" : "string",
+            "description" : "The scheduled stop type for the journey at the event",
+            "enum" : [ "NONE", "TECHNICAL", "PASSENGER" ]
+          },
+          "scheduledPassengerStop" : {
+            "$ref" : "#/components/schemas/BoardStopInfoDto",
+            "description" : "Information about the scheduled passenger stop, omitted if no passenger stop is scheduled"
+          },
+          "realtimePassengerStop" : {
+            "$ref" : "#/components/schemas/BoardStopInfoDto",
+            "description" : "Realtime information about the passenger stop, omitted if the event didn't happen / didn't stop at a platform"
+          },
+          "transport" : {
+            "$ref" : "#/components/schemas/BoardTransportDto",
+            "description" : "Information about the transport at the requested point"
+          },
+          "via" : {
+            "type" : "array",
+            "description" : "The events this journey goes via. For arrivals these are the events before the requested point, for departures the\nevents after the requested point. Events are always sorted by their index along the journey route. This means for\narrivals the events are ordered in [initial -> current] while for departures they are sorted [current -> final].\n",
+            "items" : {
+              "$ref" : "#/components/schemas/BoardViaEventDto"
+            }
+          }
+        },
+        "required" : [ "additional", "cancelled", "eventId", "journeyId", "realtimeTime", "realtimeTimeType", "scheduledTime", "stopType", "transport", "via" ]
+      },
+      "BoardStopInfoDto" : {
+        "type" : "object",
+        "properties" : {
+          "platform" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The platform of the passenger change",
+            "minimum" : 1
+          },
+          "track" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The track of the passenger change",
+            "minimum" : 1
+          }
+        },
+        "required" : [ "platform", "track" ]
+      },
+      "BoardTransportDto" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "description" : "The category of the transport",
+            "minLength" : 1
+          },
+          "categoryExternal" : {
+            "type" : [ "string", "null" ],
+            "description" : "The external category of the transport (for example internal can be RPJ, external IR), null if the same as the internal category"
+          },
+          "number" : {
+            "type" : "string",
+            "description" : "The number of the transport",
+            "minLength" : 1
+          },
+          "line" : {
+            "type" : [ "string", "null" ],
+            "description" : "The line of the transport, null in case no line is associated with the transport"
+          },
+          "label" : {
+            "type" : [ "string", "null" ],
+            "description" : "The label of the transport, for example the marketing name or product name of the transport"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "The higher-level category of the transport",
+            "enum" : [ "NATIONAL_EXPRESS_TRAIN", "INTER_NATIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_EXPRESS_TRAIN", "INTER_REGIONAL_TRAIN", "REGIONAL_FAST_TRAIN", "REGIONAL_TRAIN", "ADDITIONAL_TRAIN", "MANEUVER_TRAIN", "EMPTY_TRANSFER_TRAIN", "INTER_NATIONAL_CARGO_TRAIN", "NATIONAL_CARGO_TRAIN", "MAINTENANCE_TRAIN" ]
+          },
+          "maxSpeed" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The maximum speed (in km/h) of the journey is allowed to drive at the associated point",
+            "minimum" : 1
+          }
+        },
+        "required" : [ "category", "maxSpeed", "number", "type" ]
+      },
+      "BoardViaEventDto" : {
+        "type" : "object",
+        "properties" : {
+          "pointId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Id of the point"
+          },
+          "pointName" : {
+            "type" : "string",
+            "description" : "Name of the point",
+            "minLength" : 1
+          },
+          "cancelled" : {
+            "type" : "boolean",
+            "description" : "If the particular point was cancelled"
+          },
+          "additional" : {
+            "type" : "boolean",
+            "description" : "If the particular point is additional"
+          },
+          "passengerChange" : {
+            "type" : "boolean",
+            "description" : "If a passenger change is scheduled at the point"
+          }
+        },
+        "required" : [ "additional", "cancelled", "passengerChange", "pointId", "pointName" ]
+      },
+      "ProblemDetail" : {
+        "type" : "object",
+        "additionalProperties" : {
+          "description" : "Additional members to further narrow the core cause of the problem"
+        },
+        "description" : "Problem description according to RFC 9457",
+        "externalDocs" : {
+          "description" : "RFC 9457",
+          "url" : "https://datatracker.ietf.org/doc/html/rfc9457"
+        },
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "description" : "A URI reference identifying the problem type"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The HTTP status code generated by the server for the problem"
+          },
+          "title" : {
+            "type" : "string",
+            "description" : "A human-readable summary of the problem type"
+          },
+          "detail" : {
+            "type" : "string",
+            "description" : "A human-readable explanation specific to the occurrence of the problem"
+          },
+          "instance" : {
+            "type" : "string",
+            "description" : "A URI reference that identifies the specific occurrence of the problem"
+          }
+        }
+      }
+    }
+  }
+}
