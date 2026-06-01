@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import sys
 from datetime import datetime
 from dotenv import load_dotenv
@@ -20,8 +21,10 @@ logging.basicConfig(
 async def main():
     load_dotenv()
 
-    # Steam ID to track
-    steam_id = "76561198033647260"
+    # Get Steam ID from environment variable
+    steam_id = os.getenv("STEAM_ID")
+    if not steam_id:
+        raise ValueError("STEAM_ID environment variable is required")
 
     tracker = PlayerTracker(
         steam_id=steam_id,

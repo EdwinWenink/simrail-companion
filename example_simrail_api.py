@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import os
 import sys
+from dotenv import load_dotenv
 from simrail_api import SimRailClient
 
 # Configure UTF-8 output for Windows console
@@ -14,10 +16,14 @@ logging.basicConfig(
 
 
 async def main():
+    load_dotenv()
+
     client = SimRailClient()
 
-    # Example Steam ID
-    steam_id = "76561198033647260"
+    # Get Steam ID from environment variable
+    steam_id = os.getenv("STEAM_ID")
+    if not steam_id:
+        raise ValueError("STEAM_ID environment variable is required")
 
     print(f"Searching for player {steam_id} across all SimRail servers...\n")
 

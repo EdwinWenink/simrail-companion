@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from dotenv import load_dotenv
 from simrail_steam import SteamClient
 
@@ -16,8 +17,10 @@ async def main():
     # Initialize the Steam client
     client = SteamClient()
 
-    # Example Steam ID (replace with a real one)
-    steam_id = "76561198033647260"
+    # Get Steam ID from environment variable
+    steam_id = os.getenv("STEAM_ID")
+    if not steam_id:
+        raise ValueError("STEAM_ID environment variable is required")
 
     print(f"Fetching data for Steam ID: {steam_id}\n")
 
