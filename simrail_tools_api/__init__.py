@@ -1,5 +1,22 @@
 from .client import SimRailToolsClient
-from .types import Journey, JourneyEvent, DelayInfo
+from .types import (
+    Journey,
+    JourneyEvent,
+    DelayInfo,
+    EventType,
+    StopType,
+    RealtimeTimeType,
+    DelayStatus,
+)
 
 __version__ = "0.1.0"
-__all__ = ["SimRailToolsClient", "Journey", "JourneyEvent", "DelayInfo"]
+__all__ = [
+    "SimRailToolsClient",
+    "Journey",
+    "JourneyEvent",
+    "DelayInfo",
+    "EventType",
+    "StopType",
+    "RealtimeTimeType",
+    "DelayStatus",
+]

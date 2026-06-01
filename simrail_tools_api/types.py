@@ -2,6 +2,12 @@ from typing import Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel
 
+# Type aliases for reused Literals
+EventType = Literal["ARRIVAL", "DEPARTURE"]
+StopType = Literal["NONE", "TECHNICAL", "PASSENGER"]
+RealtimeTimeType = Literal["SCHEDULE", "PREDICTION", "REAL"]
+DelayStatus = Literal["on_time", "delayed", "early"]
+
 
 class JourneyTransport(BaseModel):
     category: str
@@ -16,14 +22,14 @@ class JourneyStopPlace(BaseModel):
 
 class JourneyEvent(BaseModel):
     id: str
-    type: Literal["ARRIVAL", "DEPARTURE"]
+    type: EventType
     cancelled: bool
     additional: bool
     stopPlace: JourneyStopPlace
     scheduledTime: datetime
     realtimeTime: datetime
-    realtimeTimeType: Literal["SCHEDULE", "PREDICTION", "REAL"]
-    stopType: Literal["NONE", "TECHNICAL", "PASSENGER"]
+    realtimeTimeType: RealtimeTimeType
+    stopType: StopType
     transport: JourneyTransport
 
 
@@ -45,11 +51,11 @@ class Journey(BaseModel):
 
 class DelayInfo(BaseModel):
     station_name: str
-    event_type: Literal["ARRIVAL", "DEPARTURE"]
+    event_type: EventType
     scheduled_time: datetime
     realtime_time: datetime
     delay_seconds: int
     delay_minutes: float
-    status: Literal["on_time", "delayed", "early"]
-    time_type: Literal["SCHEDULE", "PREDICTION", "REAL"]
-    stop_type: Literal["NONE", "TECHNICAL", "PASSENGER"]
+    status: DelayStatus
+    time_type: RealtimeTimeType
+    stop_type: StopType
