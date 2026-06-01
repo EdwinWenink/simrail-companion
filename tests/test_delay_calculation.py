@@ -4,6 +4,19 @@ from simrail_tools_api.client import SimRailToolsClient
 from simrail_tools_api.types import JourneyEvent
 
 
+def get_default_transport():
+    """Get default transport data for tests."""
+    return {
+        'category': 'IC',
+        'categoryExternal': None,
+        'number': '1234',
+        'line': None,
+        'label': None,
+        'type': 'INTER_REGIONAL_TRAIN',
+        'maxSpeed': 160
+    }
+
+
 class TestDelayCalculation:
     """Tests for the calculate_delay method."""
 
@@ -24,7 +37,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T12:00:00.000Z',
             'realtimeTimeType': 'PREDICTION',
             'stopType': 'PASSENGER',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)
@@ -49,7 +62,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T12:03:30.000Z',
             'realtimeTimeType': 'PREDICTION',
             'stopType': 'PASSENGER',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)
@@ -71,7 +84,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T12:03:00.000Z',
             'realtimeTimeType': 'PREDICTION',
             'stopType': 'PASSENGER',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)
@@ -93,7 +106,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T12:00:45.000Z',
             'realtimeTimeType': 'PREDICTION',
             'stopType': 'PASSENGER',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)
@@ -115,7 +128,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T12:00:00.000Z',
             'realtimeTimeType': 'PREDICTION',
             'stopType': 'NONE',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)
@@ -136,7 +149,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T12:01:30.000Z',
             'realtimeTimeType': 'PREDICTION',
             'stopType': 'TECHNICAL',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)
@@ -159,7 +172,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T12:02:00.000Z',
             'realtimeTimeType': 'REAL',
             'stopType': 'PASSENGER',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)
@@ -185,7 +198,7 @@ class TestDelayCalculation:
             'realtimeTime': '2024-01-01T13:30:00.000Z',
             'realtimeTimeType': 'PREDICTION',
             'stopType': 'PASSENGER',
-            'transport': {'category': 'IC', 'number': '1234', 'line': None}
+            'transport': get_default_transport()
         }
 
         event = JourneyEvent(**event_data)

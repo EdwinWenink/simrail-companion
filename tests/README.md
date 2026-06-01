@@ -21,7 +21,7 @@ uv run pytest tests/test_delay_calculation.py::TestDelayCalculation::test_delaye
 ## Test Structure
 
 ### `test_types.py`
-Tests for Pydantic type models, verifying:
+Tests for core Pydantic type models, verifying:
 - ISO-8601 datetime parsing (with milliseconds and timezone)
 - Timezone-aware datetime handling
 - Stop types (NONE, TECHNICAL, PASSENGER)
@@ -29,6 +29,20 @@ Tests for Pydantic type models, verifying:
 - Realtime time types (SCHEDULE, PREDICTION, REAL)
 - DateTime formatting with strftime
 - Journey model creation with nested events
+
+### `test_extended_types.py`
+Tests for extended Journey model fields from OpenAPI spec:
+- JourneyStopInfo (platform and track information)
+- GeoPosition (latitude and longitude)
+- JourneyLiveData with optional driver and nextSignal fields
+- JourneyEvent with optional scheduledPassengerStop and realtimePassengerStop
+- Journey model with optional liveData
+
+### `test_transport.py`
+Tests for complete JourneyTransport model:
+- All required and optional fields (category, categoryExternal, number, line, label, type, maxSpeed)
+- All 12 transport types (express, regional, cargo, maintenance, etc.)
+- Real-world examples (EuroCity, cargo trains, maintenance trains)
 
 ### `test_delay_calculation.py`
 Tests for delay calculation logic, covering:
@@ -43,7 +57,12 @@ Tests for delay calculation logic, covering:
 
 ## Test Coverage
 
-Current test count: **18 tests**
+Current test count: **33 tests**
+- 8 tests for delay calculation
+- 9 tests for extended Journey/Event types  
+- 6 tests for core type models
+- 6 tests for JourneyTransport
+- 4 tests for DelayInfo and Journey creation
 
 All tests verify that:
 1. Pydantic correctly parses API datetime strings (both timezone-aware with `Z` and timezone-naive without)
