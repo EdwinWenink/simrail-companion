@@ -5,6 +5,7 @@ from typing import Optional
 import aiohttp
 
 from .types import Journey, JourneyEvent, DelayInfo
+from .vehicle_types import VehicleSequence
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +259,30 @@ class SimRailToolsClient:
             result["next_station_name"] = next_station_name
 
         return result
+
+    async def get_vehicle_composition(self, journey_id: str) -> Optional[VehicleSequence]:
+        """Get the vehicle composition for a journey.
+
+        Args:
+            journey_id: Journey ID to get vehicles for
+
+        Returns:
+            VehicleSequence with all vehicles in the composition, or None if not found
+        """
+        try:
+            data = await self._fetch(f"sit-vehicles/v2/by-journey/{journey_id}")
+            return VehicleSequence(**data)
+        except aiohttp.ClientResponseError as e:
+            if e.status == 404:
+                logger.warning("Vehicle composition for journey %s not found (404)", journey_id)
+            else:
+                logger.error("HTTP %s fetching vehicle composition for journey %s: %s",
+                            e.status, journey_id, e.message)
+            return None
+        except Exception as e:
+            logger.error("Error fetching vehicle composition for journey %s: %s - %s",
+                        journey_id, type(e).__name__, e)
+            return None
 
     async def close(self):
         pass

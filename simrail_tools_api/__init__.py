@@ -12,6 +12,12 @@ from .types import (
     DelayStatus,
     TransportType,
 )
+from .vehicle_types import (
+    VehicleSequence,
+    Vehicle,
+    Railcar,
+    VehicleLoad,
+)
 
 __version__ = "0.1.0"
 __all__ = [
@@ -27,4 +33,8 @@ __all__ = [
     "RealtimeTimeType",
     "DelayStatus",
     "TransportType",
+    "VehicleSequence",
+    "Vehicle",
+    "Railcar",
+    "VehicleLoad",
 ]

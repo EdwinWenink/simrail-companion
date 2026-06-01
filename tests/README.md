@@ -44,6 +44,15 @@ Tests for complete JourneyTransport model:
 - All 12 transport types (express, regional, cargo, maintenance, etc.)
 - Real-world examples (EuroCity, cargo trains, maintenance trains)
 
+### `test_vehicles.py`
+Tests for vehicle composition models:
+- Railcar model with physical properties and DLC requirements
+- Vehicle model with optional cargo loads
+- VehicleSequence for complete train compositions
+- All 19 cargo load types (coal, petrol, containers, wood, etc.)
+- Vehicle indexing and ordering in compositions
+- Printable string representation with locomotive info and statistics
+
 ### `test_delay_calculation.py`
 Tests for delay calculation logic, covering:
 - On-time arrivals (0 delay)
@@ -57,11 +66,12 @@ Tests for delay calculation logic, covering:
 
 ## Test Coverage
 
-Current test count: **33 tests**
+Current test count: **47 tests**
 - 8 tests for delay calculation
 - 9 tests for extended Journey/Event types  
 - 6 tests for core type models
 - 6 tests for JourneyTransport
+- 14 tests for vehicle composition models (including printable representation)
 - 4 tests for DelayInfo and Journey creation
 
 All tests verify that:

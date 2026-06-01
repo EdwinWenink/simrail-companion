@@ -271,10 +271,14 @@ class PlayerTracker:
                 if journey_id:
                     self.current_journey_id = journey_id
                     logger.info("✓ Found timetable (journey %s...)", journey_id[:8])
+
+                    # Get and display vehicle composition
+                    await self._display_vehicle_composition(journey_id)
                 else:
                     logger.info(
-                        f"⚠️  No timetable data available for train {activity['train_number']} "
-                        f"(may be a bot train or timetable not yet available)"
+                        "⚠️  No timetable data available for train %s "
+                        "(may be a bot train or timetable not yet available)",
+                        activity['train_number']
                     )
                     return
 
@@ -397,6 +401,24 @@ class PlayerTracker:
         except Exception as e:
             logger.debug("Could not check dispatcher: %s", e)
             return ""
+
+    async def _display_vehicle_composition(self, journey_id: str):
+        """Fetch and display vehicle composition for a journey."""
+        try:
+            logger.info("🚂 Fetching vehicle composition...")
+            vehicles = await self.simrail_tools_client.get_vehicle_composition(journey_id)
+
+            if vehicles:
+                logger.info("\n%s", "─" * 80)
+                # Split the string representation into lines and log each separately
+                for line in str(vehicles).split('\n'):
+                    logger.info("%s", line)
+                logger.info("%s\n", "─" * 80)
+            else:
+                logger.info("⚠️  No vehicle composition available for this journey")
+
+        except Exception as e:
+            logger.debug("Could not fetch vehicle composition: %s", e)
 
     async def sync_steam_stats(self):
         """Sync current Steam stats to database."""
