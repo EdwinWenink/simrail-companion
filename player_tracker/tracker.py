@@ -62,7 +62,7 @@ class PlayerTracker:
         finally:
             # Ensure any active sessions are closed
             logger.info("Cleaning up active sessions...")
-            await self._end_active_sessions()
+            await self._end_active_sessions(is_interrupted=True)
 
     def stop(self):
         """Stop tracking the player."""
@@ -190,8 +190,13 @@ class PlayerTracker:
             f"   Route: {activity['start_station']} → {activity['end_station']} on {activity['server_name']}"
         )
 
-    async def _end_train_session(self, session_id: str):
-        """End a train session and calculate distance/points."""
+    async def _end_train_session(self, session_id: str, is_interrupted: bool = False):
+        """End a train session and calculate distance/points.
+
+        Args:
+            session_id: The session ID to end
+            is_interrupted: True if ending due to tracker shutdown/interrupt
+        """
         logger.debug("Ending train session, calculating stats")
 
         # Clear the cached journey ID and last next station since we're leaving this train
@@ -200,25 +205,54 @@ class PlayerTracker:
 
         if not self.start_steam_distance or not self.start_steam_points:
             # No starting stats, can't calculate difference
-            self.db.end_train_session(session_id, 0, 0)
-            logger.warning(
-                f"⚠️  Ended train session with no distance/points (missing start stats)"
-            )
-            self.current_train_session_id = None
-            return
+            if is_interrupted:
+                logger.warning(
+                    "⚠️  Session interrupted without baseline stats - leaving open for manual review"
+                )
+                # Don't close the session - user can manually review it later
+                self.current_train_session_id = None
+                return
+            else:
+                self.db.end_train_session(session_id, 0, 0)
+                logger.warning(
+                    "⚠️  Ended train session with no distance/points (missing start stats)"
+                )
+                self.current_train_session_id = None
+                return
 
-        # Get current Steam stats
+        # Get current Steam stats with retry for interrupted sessions
         logger.debug("Fetching Steam stats for session end")
-        steam_stats = await self.steam_client.get_simrail_stats(self.steam_id)
+        steam_stats = None
+        max_retries = 3 if is_interrupted else 1
+
+        for attempt in range(max_retries):
+            try:
+                steam_stats = await self.steam_client.get_simrail_stats(self.steam_id)
+                if steam_stats:
+                    break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.debug("Steam API attempt %s/%s failed: %s", attempt + 1, max_retries, e)
+                    await asyncio.sleep(0.5)  # Brief delay before retry
+                else:
+                    logger.debug("All Steam API attempts failed")
 
         if not steam_stats:
-            # Can't get current stats
-            self.db.end_train_session(session_id, 0, 0)
-            logger.warning(
-                f"⚠️  Ended train session with no distance/points (missing end stats)"
-            )
-            self.current_train_session_id = None
-            return
+            if is_interrupted:
+                logger.warning(
+                    "⚠️  Could not fetch final stats during shutdown - session left open"
+                )
+                # Leave session open rather than recording incorrect 0 values
+                self.current_train_session_id = None
+                return
+            else:
+                # Normal session end, record zeros
+                self.db.end_train_session(session_id, 0, 0)
+                logger.warning(
+                    "⚠️  Ended train session with no distance/points (missing end stats)"
+                )
+                self.current_train_session_id = None
+                return
 
         # Calculate difference
         distance = max(0, steam_stats["DISTANCE_M"] - self.start_steam_distance)
@@ -226,18 +260,23 @@ class PlayerTracker:
 
         self.db.end_train_session(session_id, distance, points)
         logger.info(
-            f"✅ Completed train session: {distance:,}m ({distance/1000:.2f}km), {points:,} points"
+            "✅ Completed train session: %s m (%s km), %s points",
+            f"{distance:,}", f"{distance/1000:.2f}", f"{points:,}"
         )
 
         self.current_train_session_id = None
         self.start_steam_distance = None
         self.start_steam_points = None
 
-    async def _end_active_sessions(self):
-        """End any active sessions when player goes offline or tracker stops."""
+    async def _end_active_sessions(self, is_interrupted: bool = False):
+        """End any active sessions when player goes offline or tracker stops.
+
+        Args:
+            is_interrupted: True if ending due to tracker shutdown/interrupt
+        """
         if self.current_train_session_id:
             logger.info("Ending active train session")
-            await self._end_train_session(self.current_train_session_id)
+            await self._end_train_session(self.current_train_session_id, is_interrupted=is_interrupted)
 
         if self.current_station_session_id:
             self.db.end_station_session(self.current_station_session_id)

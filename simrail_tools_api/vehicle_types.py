@@ -26,13 +26,15 @@ VehicleLoad = Literal[
     "UNKNOWN",
 ]
 
+VehicleType = Literal["WAGON", "LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT"]  
+
 
 class Railcar(BaseModel):
     """Summary information about a railcar (locomotive or wagon)."""
     id: str
     displayName: str
     name: Optional[str] = None
-    type: str
+    type: VehicleType
     typeIdentifier: str
     requiredDlcId: Optional[str] = None
     designation: str
