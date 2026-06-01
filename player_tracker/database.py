@@ -26,7 +26,9 @@ class TrackerDatabase:
                     joined_at TEXT NOT NULL,
                     left_at TEXT,
                     distance_meters INTEGER,
-                    points INTEGER
+                    points INTEGER,
+                    baseline_distance INTEGER,
+                    baseline_points INTEGER
                 )
             """)
 
@@ -82,6 +84,8 @@ class TrackerDatabase:
         start_station: str,
         end_station: str,
         vehicle: str,
+        baseline_distance: Optional[int] = None,
+        baseline_points: Optional[int] = None,
     ) -> str:
         session_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
@@ -91,8 +95,9 @@ class TrackerDatabase:
                 """
                 INSERT INTO train_sessions (
                     id, steam_id, server_code, server_name, train_number,
-                    train_name, start_station, end_station, vehicle, joined_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    train_name, start_station, end_station, vehicle, joined_at,
+                    baseline_distance, baseline_points
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -105,6 +110,8 @@ class TrackerDatabase:
                     end_station,
                     vehicle,
                     now,
+                    baseline_distance,
+                    baseline_points,
                 ),
             )
             conn.commit()

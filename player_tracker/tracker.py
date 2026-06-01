@@ -101,14 +101,22 @@ class PlayerTracker:
         active_session = self.db.get_active_train_session(self.steam_id)
 
         if active_session and active_session["train_number"] == activity["train_number"]:
-            # Same train, still active - check for delay updates periodically
-            # (we check every poll, but the detailed output only shows when there are changes)
-            logger.debug("Player still on train %s", activity['train_number'])
-            await self._check_delay_status(activity)
-            return
+            # Same train - check if we're actively tracking it
+            if self.current_train_session_id == active_session["id"]:
+                # We're already tracking this session
+                logger.debug("Player still on train %s", activity['train_number'])
+                await self._check_delay_status(activity)
+                return
+            else:
+                # Stale open session from interrupted tracker run
+                # Close it with current stats (best effort) and start fresh
+                logger.info("Found interrupted session for train %s - closing with current stats",
+                           activity['train_number'])
+                await self._end_train_session(active_session["id"], is_interrupted=False)
+                # Fall through to start new session
 
-        # End old train session if exists
-        if active_session:
+        # End old train session if exists (different train)
+        elif active_session:
             logger.info("Player switched trains: %s -> %s",
                        active_session['train_number'], activity['train_number'])
             await self._end_train_session(active_session["id"])
@@ -181,6 +189,8 @@ class PlayerTracker:
             start_station=activity["start_station"],
             end_station=activity["end_station"],
             vehicle=vehicle,
+            baseline_distance=self.start_steam_distance,
+            baseline_points=self.start_steam_points,
         )
         self.current_train_session_id = session_id
         logger.info(
@@ -203,7 +213,21 @@ class PlayerTracker:
         self.current_journey_id = None
         self.last_next_station = None
 
-        if not self.start_steam_distance or not self.start_steam_points:
+        # Try to get baseline from memory, otherwise from database
+        baseline_distance = self.start_steam_distance
+        baseline_points = self.start_steam_points
+
+        if not baseline_distance or not baseline_points:
+            # Try to get baseline from database (for stale sessions)
+            session = self.db.get_train_sessions(self.steam_id, limit=10000)
+            session = next((s for s in session if s['id'] == session_id), None)
+            if session and session.get('baseline_distance') and session.get('baseline_points'):
+                baseline_distance = session['baseline_distance']
+                baseline_points = session['baseline_points']
+                logger.debug("Using baseline stats from database: %sm, %s points",
+                            baseline_distance, baseline_points)
+
+        if not baseline_distance or not baseline_points:
             # No starting stats, can't calculate difference
             if is_interrupted:
                 logger.warning(
@@ -254,9 +278,10 @@ class PlayerTracker:
                 self.current_train_session_id = None
                 return
 
-        # Calculate difference
-        distance = max(0, steam_stats["DISTANCE_M"] - self.start_steam_distance)
-        points = max(0, steam_stats["SCORE"] - self.start_steam_points)
+        # Calculate difference (baseline is guaranteed non-None here by the check above)
+        assert baseline_distance is not None and baseline_points is not None
+        distance = max(0, steam_stats["DISTANCE_M"] - baseline_distance)
+        points = max(0, steam_stats["SCORE"] - baseline_points)
 
         self.db.end_train_session(session_id, distance, points)
         logger.info(
