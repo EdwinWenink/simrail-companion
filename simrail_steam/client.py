@@ -123,10 +123,20 @@ class SteamClient:
 
         stats_dict = {stat["name"]: stat["value"] for stat in stats["stats"]}
 
+        # Check if we got the required stats - if all are 0 or missing, something is wrong
+        score = stats_dict.get("SCORE")
+        distance = stats_dict.get("DISTANCE_M")
+        dispatcher_time = stats_dict.get("DISPATCHER_TIME")
+
+        # If stats are missing (not just zero), return None
+        if score is None or distance is None or dispatcher_time is None:
+            logger.warning("Steam API returned incomplete stats for %s (stats may be private)", steam_id)
+            return None
+
         return SimRailStats(
-            SCORE=stats_dict.get("SCORE", 0),
-            DISPATCHER_TIME=stats_dict.get("DISPATCHER_TIME", 0),
-            DISTANCE_M=stats_dict.get("DISTANCE_M", 0),
+            SCORE=score,
+            DISPATCHER_TIME=dispatcher_time,
+            DISTANCE_M=distance,
         )
 
     async def close(self):

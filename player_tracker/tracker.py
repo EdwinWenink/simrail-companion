@@ -33,6 +33,7 @@ class PlayerTracker:
         self.start_steam_points: Optional[int] = None
         self.current_journey_id: Optional[str] = None
         self.last_next_station: Optional[str] = None  # Track last shown next station
+        self.recorded_stations: set[str] = set()  # Track which stations we've passed in current session
 
     async def start(self):
         """Start tracking the player continuously."""
@@ -170,12 +171,13 @@ class PlayerTracker:
         if steam_stats:
             self.start_steam_distance = steam_stats["DISTANCE_M"]
             self.start_steam_points = steam_stats["SCORE"]
-            logger.debug("Baseline stats: %sm, %s points",
-                        self.start_steam_distance, self.start_steam_points)
+            logger.info("📊 Baseline captured: %s m, %s points, %s min dispatcher",
+                       self.start_steam_distance, self.start_steam_points,
+                       steam_stats.get("DISPATCHER_TIME", 0))
         else:
             self.start_steam_distance = None
             self.start_steam_points = None
-            logger.warning("Could not fetch Steam stats for baseline")
+            logger.warning("⚠️  Could not fetch Steam stats for baseline - stats may be private or Steam API unavailable")
 
         # Get vehicle name (first vehicle in the list)
         vehicle = activity["vehicles"][0] if activity["vehicles"] else "Unknown"
@@ -193,6 +195,7 @@ class PlayerTracker:
             baseline_points=self.start_steam_points,
         )
         self.current_train_session_id = session_id
+        self.recorded_stations = set()  # Clear recorded stations for new session
         logger.info(
             f"🚂 Started driving train {activity['train_number']} ({activity['train_name']}) - {vehicle}"
         )
@@ -280,8 +283,16 @@ class PlayerTracker:
 
         # Calculate difference (baseline is guaranteed non-None here by the check above)
         assert baseline_distance is not None and baseline_points is not None
-        distance = max(0, steam_stats["DISTANCE_M"] - baseline_distance)
-        points = max(0, steam_stats["SCORE"] - baseline_points)
+
+        current_distance = steam_stats["DISTANCE_M"]
+        current_points = steam_stats["SCORE"]
+
+        distance = max(0, current_distance - baseline_distance)
+        points = max(0, current_points - baseline_points)
+
+        logger.debug("Stats calculation: current=%sm/%spts - baseline=%sm/%spts = session=%sm/%spts",
+                    current_distance, current_points, baseline_distance, baseline_points,
+                    distance, points)
 
         self.db.end_train_session(session_id, distance, points)
         logger.info(
@@ -345,6 +356,22 @@ class PlayerTracker:
                         activity['train_number']
                     )
                     return
+
+            # Get ALL delays (including past) to record station passages
+            all_delays = await self.simrail_tools_client.get_journey_delays(journey_id, upcoming_only=False)
+
+            # Record any past stations we haven't recorded yet
+            if self.current_train_session_id and all_delays:
+                for delay in all_delays:
+                    # Only record stations we've actually passed (time_type == "REAL")
+                    if delay.time_type == "REAL" and delay.station_name not in self.recorded_stations:
+                        self.db.record_train_station_passage(
+                            self.current_train_session_id,
+                            delay.station_name,
+                            delay.stop_type
+                        )
+                        self.recorded_stations.add(delay.station_name)
+                        logger.debug("Recorded passage: %s (%s)", delay.station_name, delay.stop_type)
 
             # Get upcoming delays (filters out past events using realtimeTimeType)
             delays = await self.simrail_tools_client.get_journey_delays(journey_id, upcoming_only=True)

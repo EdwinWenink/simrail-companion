@@ -46,6 +46,17 @@ class TrackerDatabase:
             """)
 
             conn.execute("""
+                CREATE TABLE IF NOT EXISTS train_station_passages (
+                    id TEXT PRIMARY KEY,
+                    train_session_id TEXT NOT NULL,
+                    station_name TEXT NOT NULL,
+                    passed_at TEXT NOT NULL,
+                    stop_type TEXT NOT NULL,
+                    FOREIGN KEY (train_session_id) REFERENCES train_sessions(id)
+                )
+            """)
+
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS steam_stats (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     steam_id TEXT NOT NULL,
@@ -72,7 +83,31 @@ class TrackerDatabase:
                 CREATE INDEX IF NOT EXISTS idx_steam_stats_recorded_at ON steam_stats(recorded_at)
             """)
 
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_train_passages_session ON train_station_passages(train_session_id)
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_train_passages_station ON train_station_passages(station_name)
+            """)
+
             conn.commit()
+
+            # Migration: Add baseline columns if they don't exist
+            cursor = conn.execute("PRAGMA table_info(train_sessions)")
+            columns = [row[1] for row in cursor.fetchall()]
+
+            if 'baseline_distance' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN baseline_distance INTEGER
+                """)
+                conn.commit()
+
+            if 'baseline_points' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN baseline_points INTEGER
+                """)
+                conn.commit()
 
     def create_train_session(
         self,
@@ -193,6 +228,24 @@ class TrackerDatabase:
                 WHERE id = ?
                 """,
                 (now, session_id),
+            )
+            conn.commit()
+
+    def record_train_station_passage(
+        self, train_session_id: str, station_name: str, stop_type: str
+    ):
+        """Record a station passage during a train session."""
+        passage_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO train_station_passages (
+                    id, train_session_id, station_name, passed_at, stop_type
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (passage_id, train_session_id, station_name, now, stop_type),
             )
             conn.commit()
 
@@ -324,6 +377,32 @@ class TrackerDatabase:
                 row[0]: int(row[1]) for row in station_time_cursor.fetchall()
             }
 
+            # Station passages during train sessions
+            passages_cursor = conn.execute(
+                """
+                SELECT
+                    tsp.station_name,
+                    COUNT(*) as passage_count,
+                    SUM(CASE WHEN tsp.stop_type = 'PASSENGER' THEN 1 ELSE 0 END) as passenger_stops,
+                    SUM(CASE WHEN tsp.stop_type = 'TECHNICAL' THEN 1 ELSE 0 END) as technical_stops,
+                    SUM(CASE WHEN tsp.stop_type = 'NONE' THEN 1 ELSE 0 END) as pass_through
+                FROM train_station_passages tsp
+                JOIN train_sessions ts ON tsp.train_session_id = ts.id
+                WHERE ts.steam_id = ?
+                GROUP BY tsp.station_name
+                """,
+                (steam_id,),
+            )
+            station_passages = {
+                row[0]: {
+                    "total": row[1],
+                    "passenger_stops": row[2],
+                    "technical_stops": row[3],
+                    "pass_through": row[4],
+                }
+                for row in passages_cursor.fetchall()
+            }
+
             return {
                 "total_distance_meters": train_stats[1],
                 "total_points": train_stats[2],
@@ -333,6 +412,7 @@ class TrackerDatabase:
                 "station_sessions": station_stats[0],
                 "trains_by_type": trains_by_type,
                 "stations_by_name": stations_by_name,
+                "station_passages": station_passages,
             }
 
     def save_steam_stats(

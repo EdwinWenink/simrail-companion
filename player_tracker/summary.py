@@ -120,6 +120,25 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
             station_display = station[:38] + '..' if len(station) > 40 else station
             print(f"{station_display:<40} {time_str:<15} {session_count:<10}")
 
+    # ===== STATIONS PASSED DURING TRAIN SESSIONS =====
+    if stats.get('station_passages'):
+        print("\n🚉 STATIONS PASSED WHILE DRIVING TRAINS (Top 20)")
+        print("-" * 80)
+        print(f"{'Station Name':<40} {'Total':<8} {'Stop':<8} {'Tech':<8} {'Pass':<8}")
+        print("-" * 80)
+
+        # Sort by total passages
+        sorted_passages = sorted(
+            stats['station_passages'].items(),
+            key=lambda x: x[1]['total'],
+            reverse=True
+        )
+
+        for station, data in sorted_passages[:20]:
+            station_display = station[:38] + '..' if len(station) > 40 else station
+            print(f"{station_display:<40} {data['total']:<8} {data['passenger_stops']:<8} "
+                  f"{data['technical_stops']:<8} {data['pass_through']:<8}")
+
     # ===== RECENT TRAIN SESSIONS =====
     print(f"\n🚂 RECENT TRAIN SESSIONS (Last {session_limit})")
     print("-" * 80)

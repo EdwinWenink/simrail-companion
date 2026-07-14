@@ -211,7 +211,6 @@ This works regardless of whether future events are PREDICTION or SCHEDULE.
 ⚠️ **Per-Station Dispatcher Stats Not Available**
 - Steam API only provides aggregate `DISPATCHER_TIME`
 - Per-station stats would require monitoring live API join/leave events
-- Parent project does this for multi-player tracking (complex)
 
 ⚠️ **Server Timezone Unknown**
 - Times displayed are in server local time (UTC+1 or UTC+2)
@@ -297,7 +296,7 @@ Press Ctrl+C to stop and view stats
 23:15:46 [INFO]    Route: Małaszewicze → Częstochowa Towarowa on International 1
 
 ────────────────────────────────────────────────────────────────────────────────
-🚂 UPCOMING STATIONS (next 5 of 22):
+🚂 UPCOMING STATION EVENTS (next 5 of 22):
 ────────────────────────────────────────────────────────────────────────────────
   1. [X] Rokiciny                          22:51→22:45 🔴-6m     🔮 👤
   2. [X] Baby                              23:02→22:56 🔴-6m     🔮
@@ -415,8 +414,3 @@ This project was created during a conversation on **May 31, 2026**. Key mileston
 
 **Current Version:** Functional single-player tracker with real-time journey information.
 
----
-
-*Last Updated: May 31, 2026*  
-*Author: Built with Claude Code*  
-*Parent Project: https://github.com/simrail-pro/simrail.pro*
