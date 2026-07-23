@@ -64,23 +64,42 @@ async def main():
 
         print("=" * 100)
 
-        # Step 5: Show detailed railcar info for the first vehicle (locomotive)
-        if vehicles.vehicles:
-            print("\n📋 Locomotive Details:")
-            loco = vehicles.vehicles[0].railcar
-            print(f"  Name: {loco.displayName}")
-            if loco.name:
-                print(f"  Baptismal Name: {loco.name}")
-            print(f"  Designation: {loco.designation}")
-            print(f"  Producer: {loco.producer}")
-            print(f"  Production Years: {loco.productionYears}")
-            print(f"  Specifications:")
-            print(f"    Weight: {loco.weight}t")
-            print(f"    Length: {loco.length}m")
-            print(f"    Width: {loco.width}m")
-            print(f"    Max Speed: {loco.maxSpeed} km/h")
-            if loco.requiredDlcId:
-                print(f"  DLC Required: {loco.requiredDlcId}")
+        # Step 5: Show locomotive details (supports double-headed)
+        if vehicles.locomotives:
+            if vehicles.is_double_headed:
+                print(f"\n🚂🚂 Double-Headed Configuration ({len(vehicles.locomotives)} locomotives)")
+                print("=" * 80)
+                for i, loco in enumerate(vehicles.locomotives, 1):
+                    print(f"\nLocomotive #{i}:")
+                    print(f"  Name: {loco.displayName}")
+                    if loco.name:
+                        print(f"  Baptismal Name: {loco.name}")
+                    print(f"  Designation: {loco.designation}")
+                    print(f"  Producer: {loco.producer}")
+                    print(f"  Production Years: {loco.productionYears}")
+                    print(f"  Specifications:")
+                    print(f"    Weight: {loco.weight}t")
+                    print(f"    Length: {loco.length}m")
+                    print(f"    Width: {loco.width}m")
+                    print(f"    Max Speed: {loco.maxSpeed} km/h")
+                    if loco.requiredDlcId:
+                        print(f"  DLC Required: {loco.requiredDlcId}")
+            else:
+                print("\n📋 Locomotive Details:")
+                loco = vehicles.primary_locomotive
+                print(f"  Name: {loco.displayName}")
+                if loco.name:
+                    print(f"  Baptismal Name: {loco.name}")
+                print(f"  Designation: {loco.designation}")
+                print(f"  Producer: {loco.producer}")
+                print(f"  Production Years: {loco.productionYears}")
+                print(f"  Specifications:")
+                print(f"    Weight: {loco.weight}t")
+                print(f"    Length: {loco.length}m")
+                print(f"    Width: {loco.width}m")
+                print(f"    Max Speed: {loco.maxSpeed} km/h")
+                if loco.requiredDlcId:
+                    print(f"  DLC Required: {loco.requiredDlcId}")
 
     finally:
         await client.close()

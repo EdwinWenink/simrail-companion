@@ -61,17 +61,30 @@ class VehicleSequence(BaseModel):
     lastUpdated: str  # ISO-8601 with offset
     vehicles: list[Vehicle]
 
+    @property
+    def locomotives(self) -> list[Railcar]:
+        """Get all locomotives in the composition (supports double-headed trains)."""
+        return [
+            vehicle.railcar
+            for vehicle in self.vehicles
+            if vehicle.railcar.type == "LOCOMOTIVE"
+        ]
+
+    @property
+    def is_double_headed(self) -> bool:
+        """Check if this is a double-headed train (multiple locomotives)."""
+        return len(self.locomotives) > 1
+
+    @property
+    def primary_locomotive(self) -> Optional[Railcar]:
+        """Get the first (primary) locomotive, or None if no locomotive exists."""
+        locs = self.locomotives
+        return locs[0] if locs else None
+
     def __str__(self) -> str:
         """Return a human-readable representation of the vehicle composition."""
         if not self.vehicles:
             return "Empty vehicle composition"
-
-        # Find the first locomotive
-        locomotive = None
-        for vehicle in self.vehicles:
-            if vehicle.railcar.type == "LOCOMOTIVE":
-                locomotive = vehicle.railcar
-                break
 
         # Calculate statistics
         num_vehicles = len(self.vehicles)
@@ -82,11 +95,20 @@ class VehicleSequence(BaseModel):
         # Build the output
         lines = []
 
-        # TODO what about double heading EU07-EU07, 2 locs!
-        if locomotive:
-            lines.append("🚂 LOC:")
-            lines.append(f"   {locomotive.displayName} ({locomotive.typeIdentifier})")
-            lines.append(f"   {locomotive.producer} • {locomotive.productionYears} • {locomotive.maxSpeed} km/h")
+        # Display locomotive(s)
+        locomotives = self.locomotives
+        if locomotives:
+            if len(locomotives) == 1:
+                lines.append("🚂 LOCOMOTIVE:")
+                loc = locomotives[0]
+                lines.append(f"   {loc.displayName} ({loc.typeIdentifier})")
+                lines.append(f"   {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h")
+            else:
+                lines.append(f"🚂🚂 LOCOMOTIVES (Double-Headed, {len(locomotives)} units):")
+                for i, loc in enumerate(locomotives, 1):
+                    lines.append(f"   {i}. {loc.displayName} ({loc.typeIdentifier})")
+                    if i == 1:  # Only show detailed specs for first loc to avoid clutter
+                        lines.append(f"      {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h")
         else:
             lines.append("⚠️  No locomotive found in composition")
 
