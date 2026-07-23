@@ -30,7 +30,7 @@ VehicleType = Literal["WAGON", "LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT"]
 
 
 class Railcar(BaseModel):
-    """Summary information about a railcar (locomotive or wagon)."""
+    """Summary information about a railcar (locomotive, emu, or wagon)."""
     id: str
     displayName: str
     name: Optional[str] = None
@@ -68,6 +68,24 @@ class VehicleSequence(BaseModel):
             vehicle.railcar
             for vehicle in self.vehicles
             if vehicle.railcar.type == "LOCOMOTIVE"
+        ]
+
+    @property
+    def wagons(self) -> list[Railcar]:
+        """Get all wagons in the composition."""
+        return [
+            vehicle.railcar
+            for vehicle in self.vehicles
+            if vehicle.railcar.type == "WAGON"
+        ]
+
+    @property
+    def emus(self) -> list[Railcar]:
+        """Get all electric multiple units (EMUs) in the composition."""
+        return [
+            vehicle.railcar
+            for vehicle in self.vehicles
+            if vehicle.railcar.type == "ELECTRIC_MULTIPLE_UNIT"
         ]
 
     @property

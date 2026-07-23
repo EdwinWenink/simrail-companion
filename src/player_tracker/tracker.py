@@ -216,16 +216,13 @@ class PlayerTracker:
                     # Determine traction type
                     if vehicles.locomotives:
                         traction_type = "LOCOMOTIVE"
-                    elif any(v.railcar.type == "ELECTRIC_MULTIPLE_UNIT" for v in vehicles.vehicles):
-                        traction_type = "EMU"
+                    elif vehicles.emus:
+                        traction_type = "ELECTRIC_MULTIPLE_UNIT"
                     else:
-                        traction_type = "MULTIPLE_UNIT"
+                        traction_type = "UNKNOWN"
 
                     # Count wagons (non-locomotive, non-EMU vehicles)
-                    num_wagons = sum(
-                        1 for v in vehicles.vehicles
-                        if v.railcar.type not in ("LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT")
-                    )
+                    num_wagons = len(vehicles.wagons)
 
                     composition = {
                         "traction_type": traction_type,
@@ -233,11 +230,33 @@ class PlayerTracker:
                             {
                                 "displayName": loc.displayName,
                                 "typeIdentifier": loc.typeIdentifier,
-                                "weight": loc.weight,
-                                "length": loc.length,
-                                "maxSpeed": loc.maxSpeed,
                             }
                             for loc in vehicles.locomotives
+                        ],
+                        "emus": [
+                             {
+                                 "displayName": emu.displayName,
+                                 "typeIdentifier": emu.typeIdentifier,
+                             } for emu in vehicles.emus
+                        ],
+                        "vehicles": [
+                            {
+                                "indexInGroup": v.indexInGroup,
+                                "id": v.railcar.id,
+                                "displayName": v.railcar.displayName,
+                                "name": v.railcar.name,
+                                "type": v.railcar.type,
+                                "typeIdentifier": v.railcar.typeIdentifier,
+                                "designation": v.railcar.designation,
+                                "producer": v.railcar.producer,
+                                "productionYears": v.railcar.productionYears,
+                                "weight": v.railcar.weight,
+                                "length": v.railcar.length,
+                                "maxSpeed": v.railcar.maxSpeed,
+                                "loadWeight": v.loadWeight,
+                                "load": v.load,
+                            }
+                            for v in vehicles.vehicles
                         ],
                         "num_wagons": num_wagons,
                         "total_vehicles": len(vehicles.vehicles),

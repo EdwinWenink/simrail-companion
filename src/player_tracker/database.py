@@ -233,6 +233,8 @@ class TrackerDatabase:
                 {
                     "traction_type": "LOCOMOTIVE" | "EMU" | "MULTIPLE_UNIT",
                     "locomotives": [{"displayName": str, "typeIdentifier": str, ...}],
+                    "emus": [...],
+                    "vehicles": [...],
                     "num_wagons": int,
                     "total_vehicles": int,
                     "total_length": float,
