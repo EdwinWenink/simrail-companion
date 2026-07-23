@@ -162,6 +162,16 @@ class PlayerTracker:
             f"📍 Started dispatching at {activity['station_name']} ({activity['station_prefix']}) on {activity['server_name']}"
         )
 
+    def _clear_session_state_if_current(self, session_id: str):
+        """Clear session state only if the given session_id matches our current session.
+
+        This prevents clearing state when ending stale/interrupted sessions.
+        """
+        if self.current_train_session_id == session_id:
+            self.current_train_session_id = None
+            self.start_steam_distance = None
+            self.start_steam_points = None
+
     async def _start_train_session(self, activity: dict):
         """Start a new train session and record starting Steam stats."""
         # Get current Steam stats
@@ -182,12 +192,25 @@ class PlayerTracker:
         # Get vehicle name (first vehicle in the list) as fallback
         vehicle = activity["vehicles"][0] if activity["vehicles"] else "Unknown"
 
+        # Fetch journey ID first (needed for composition)
+        journey_id = None
+        try:
+            logger.debug("Looking up journey ID for train %s", activity['train_number'])
+            journey_id = await self.simrail_tools_client.find_journey_by_train_number(
+                activity["server_code"], activity["train_number"]
+            )
+            if journey_id:
+                self.current_journey_id = journey_id
+                logger.debug("✓ Found journey ID: %s", journey_id[:16])
+        except Exception as e:
+            logger.debug("Could not find journey ID: %s", e)
+
         # Fetch detailed vehicle composition if we have a journey ID
         composition = None
-        if self.current_journey_id:
+        if journey_id:
             try:
-                logger.debug("Fetching vehicle composition for journey %s", self.current_journey_id)
-                vehicles = await self.simrail_tools_client.get_vehicle_composition(self.current_journey_id)
+                logger.debug("Fetching vehicle composition...")
+                vehicles = await self.simrail_tools_client.get_vehicle_composition(journey_id)
 
                 if vehicles:
                     # Determine traction type
@@ -296,18 +319,14 @@ class PlayerTracker:
                     "⚠️  Session interrupted without baseline stats - leaving open for manual review"
                 )
                 # Don't close the session - user can manually review it later
-                self.current_train_session_id = None
-                self.start_steam_distance = None
-                self.start_steam_points = None
+                self._clear_session_state_if_current(session_id)
                 return
             else:
                 self.db.end_train_session(session_id, 0, 0)
                 logger.warning(
                     "⚠️  Ended train session with no distance/points (missing start stats)"
                 )
-                self.current_train_session_id = None
-                self.start_steam_distance = None
-                self.start_steam_points = None
+                self._clear_session_state_if_current(session_id)
                 return
 
         # Get current Steam stats with retry for interrupted sessions
@@ -333,9 +352,7 @@ class PlayerTracker:
                     "⚠️  Could not fetch final stats during shutdown - session left open"
                 )
                 # Leave session open rather than recording incorrect 0 values
-                self.current_train_session_id = None
-                self.start_steam_distance = None
-                self.start_steam_points = None
+                self._clear_session_state_if_current(session_id)
                 return
             else:
                 # Normal session end, record zeros
@@ -343,9 +360,7 @@ class PlayerTracker:
                 logger.warning(
                     "⚠️  Ended train session with no distance/points (missing end stats)"
                 )
-                self.current_train_session_id = None
-                self.start_steam_distance = None
-                self.start_steam_points = None
+                self._clear_session_state_if_current(session_id)
                 return
 
         # Calculate difference (baseline is guaranteed non-None here by the check above)
@@ -367,9 +382,7 @@ class PlayerTracker:
             f"{distance:,}", f"{distance/1000:.2f}", f"{points:,}"
         )
 
-        self.current_train_session_id = None
-        self.start_steam_distance = None
-        self.start_steam_points = None
+        self._clear_session_state_if_current(session_id)
 
     async def _end_active_sessions(self, is_interrupted: bool = False):
         """End any active sessions when player goes offline or tracker stops.
