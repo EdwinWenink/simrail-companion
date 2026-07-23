@@ -108,13 +108,13 @@ class PlayerTracker:
                 logger.debug("Player still on train %s", activity['train_number'])
                 await self._check_delay_status(activity)
                 return
-            else:
-                # Stale open session from interrupted tracker run
-                # Close it with current stats (best effort) and start fresh
-                logger.info("Found interrupted session for train %s - closing with current stats",
-                           activity['train_number'])
-                await self._end_train_session(active_session["id"], is_interrupted=False)
-                # Fall through to start new session
+
+            # Stale open session from interrupted tracker run
+            # Close it with current stats (best effort) and start fresh
+            logger.info("Found interrupted session for train %s - closing with current stats",
+                       activity['train_number'])
+            await self._end_train_session(active_session["id"], is_interrupted=False)
+            # Fall through to start new session
 
         # End old train session if exists (different train)
         elif active_session:
@@ -180,6 +180,7 @@ class PlayerTracker:
             logger.warning("⚠️  Could not fetch Steam stats for baseline - stats may be private or Steam API unavailable")
 
         # Get vehicle name (first vehicle in the list)
+        # TODO - consider storing full vehicle composition in the database for richer session data
         vehicle = activity["vehicles"][0] if activity["vehicles"] else "Unknown"
 
         session_id = self.db.create_train_session(
