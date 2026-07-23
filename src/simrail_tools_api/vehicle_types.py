@@ -82,8 +82,9 @@ class VehicleSequence(BaseModel):
         # Build the output
         lines = []
 
+        # TODO what about double heading EU07-EU07, 2 locs!
         if locomotive:
-            lines.append("🚂 LOCOMOTIVE")
+            lines.append("🚂 LOC:")
             lines.append(f"   {locomotive.displayName} ({locomotive.typeIdentifier})")
             lines.append(f"   {locomotive.producer} • {locomotive.productionYears} • {locomotive.maxSpeed} km/h")
         else:

@@ -16,8 +16,8 @@ def main():
     )
     parser.add_argument(
         "--db",
-        default="player_tracker.db",
-        help="Path to database file (default: player_tracker.db)"
+        default="data/player_tracker.db",
+        help="Path to database file (default: data/player_tracker.db)"
     )
     parser.add_argument(
         "--sessions",

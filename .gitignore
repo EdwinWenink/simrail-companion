@@ -43,6 +43,7 @@ uv.lock
 .pytest_cache/
 .coverage
 htmlcov/
+test-output.xml
 
 # OS
 .DS_Store

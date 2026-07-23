@@ -1,6 +1,6 @@
-# SimRail Steam API Client
+# SimRail Companion
 
-Python module for retrieving Steam player data and statistics for SimRail.
+Python toolkit for SimRail: Steam API client, multiplayer API tracking, and comprehensive player session monitoring.
 
 ## Features
 
@@ -39,15 +39,37 @@ export STEAM_API_KEY='["key1", "key2", "key3"]'
 
 Get your Steam API key from: https://steamcommunity.com/dev/apikey
 
+## Repository Structure
+
+```
+simrail-companion/
+├── main.py                       # Main player tracker (run this!)
+├── src/                          # Source code packages
+│   ├── simrail_api/              # SimRail multiplayer API client
+│   ├── simrail_steam/            # Steam API client
+│   ├── simrail_tools_api/        # SimRail Tools API client
+│   └── player_tracker/           # Player tracking core
+├── scripts/                      # Utility CLI tools
+│   ├── sync_steam.py            # Sync Steam stats
+│   ├── show_summary.py          # Display tracking summary
+│   ├── show_delays.py           # Show delay information
+│   └── list_servers.py          # List available servers
+├── examples/                     # Example scripts
+├── tools/                        # Debug/development utilities
+├── data/                         # Database files
+└── tests/                        # Unit tests
+```
+
 ## Usage
 
 ```bash
-# Run the example
-uv run example.py
+# Run the examples
+uv run examples/steam_api_example.py
+uv run examples/simrail_api_example.py
 
 # Or activate the virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-python example.py
+python examples/steam_api_example.py
 ```
 
 ```python
@@ -100,7 +122,7 @@ stations = await client.get_stations("en1")
 
 Run the SimRail API example:
 ```bash
-uv run example_simrail_api.py
+uv run examples/simrail_api_example.py
 ```
 
 ## Delay Tracking
@@ -109,19 +131,29 @@ Track whether you're running on time using the SimRail Tools API:
 
 ```bash
 # Show delay information for a specific train
-uv run show_delays.py int1 6162
+uv run scripts/show_delays.py int1 6162
 
-# Debug: List all available servers
-uv run list_servers.py
-
-# Debug: List all active trains on a server
-uv run debug_journey.py int1
-
-# Debug: Search for a specific train
-uv run debug_journey.py int1 --train 6162
+# List all available servers
+uv run scripts/list_servers.py
 
 # The tracker automatically checks delays while monitoring
-uv run example_tracker.py
+uv run main.py
+```
+
+### Debug Tools
+
+```bash
+# List all active trains on a server
+uv run tools/debug_journey.py int1
+
+# Search for a specific train
+uv run tools/debug_journey.py int1 --train 6162
+
+# Debug delay filtering
+uv run tools/debug_delay_filtering.py <steam_id>
+
+# Test stop types
+uv run tools/test_stop_types.py int1 6162
 ```
 
 The delay tracker shows:
@@ -157,22 +189,22 @@ train_sessions = tracker.get_recent_train_sessions(10)
 station_sessions = tracker.get_recent_station_sessions(10)
 ```
 
-Run the tracker example:
+Run the tracker:
 ```bash
 # Start tracking (automatically syncs Steam stats first, then tracks continuously)
-uv run example_tracker.py
+uv run main.py
 
 # Manually sync Steam stats without starting tracker
-uv run sync_steam.py 76561198012345678
+uv run scripts/sync_steam.py 76561198012345678
 
 # View summary of tracked data anytime
-uv run show_summary.py 76561198012345678
+uv run scripts/show_summary.py 76561198012345678
 
 # Show only active sessions
-uv run show_summary.py 76561198012345678 --active-only
+uv run scripts/show_summary.py 76561198012345678 --active-only
 
 # Customize number of recent sessions shown
-uv run show_summary.py 76561198012345678 --sessions 20
+uv run scripts/show_summary.py 76561198012345678 --sessions 20
 ```
 
 **Features:**

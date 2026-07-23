@@ -28,7 +28,7 @@ async def main():
 
     tracker = PlayerTracker(
         steam_id=steam_id,
-        db_path="player_tracker.db",
+        db_path="data/player_tracker.db",
         poll_interval=30  # Check every 30 seconds
     )
 
