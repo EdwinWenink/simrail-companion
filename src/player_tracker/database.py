@@ -1,4 +1,5 @@
 import sqlite3
+import json
 from datetime import datetime
 from typing import Optional
 import uuid
@@ -115,6 +116,70 @@ class TrackerDatabase:
                 """)
                 conn.commit()
 
+            # Migration: Add vehicle composition columns if they don't exist
+            cursor = conn.execute("PRAGMA table_info(train_sessions)")
+            columns = [row[1] for row in cursor.fetchall()]
+
+            # Rename 'vehicle' to 'vehicle_summary' if needed
+            if 'vehicle' in columns and 'vehicle_summary' not in columns:
+                # SQLite doesn't support RENAME COLUMN directly in older versions
+                # We'll add new column and copy data
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN vehicle_summary TEXT
+                """)
+                conn.execute("""
+                    UPDATE train_sessions SET vehicle_summary = vehicle
+                """)
+                conn.commit()
+
+            if 'traction_type' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN traction_type TEXT
+                """)
+                conn.commit()
+
+            if 'locomotive_names' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN locomotive_names TEXT
+                """)
+                conn.commit()
+
+            if 'num_locomotives' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN num_locomotives INTEGER
+                """)
+                conn.commit()
+
+            if 'num_wagons' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN num_wagons INTEGER
+                """)
+                conn.commit()
+
+            if 'total_vehicles' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN total_vehicles INTEGER
+                """)
+                conn.commit()
+
+            if 'total_length' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN total_length REAL
+                """)
+                conn.commit()
+
+            if 'total_weight' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN total_weight REAL
+                """)
+                conn.commit()
+
+            if 'composition_json' not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN composition_json TEXT
+                """)
+                conn.commit()
+
     def create_train_session(
         self,
         steam_id: str,
@@ -127,18 +192,70 @@ class TrackerDatabase:
         vehicle: str,
         baseline_distance: Optional[int] = None,
         baseline_points: Optional[int] = None,
+        vehicle_composition: Optional[dict] = None,
     ) -> str:
+        """Create a new train session.
+
+        Args:
+            vehicle_composition: Optional dict with vehicle composition data:
+                {
+                    "traction_type": "LOCOMOTIVE" | "EMU" | "MULTIPLE_UNIT",
+                    "locomotives": [{"displayName": str, "typeIdentifier": str, ...}],
+                    "num_wagons": int,
+                    "total_vehicles": int,
+                    "total_length": float,
+                    "total_weight": float
+                }
+        """
         session_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
+
+        # Extract composition data if provided
+        vehicle_summary = vehicle
+        traction_type = None
+        locomotive_names = None
+        num_locomotives = None
+        num_wagons = None
+        total_vehicles = None
+        total_length = None
+        total_weight = None
+        composition_json = None
+
+        if vehicle_composition:
+            traction_type = vehicle_composition.get("traction_type")
+            locomotives = vehicle_composition.get("locomotives", [])
+
+            if locomotives:
+                locomotive_names = ", ".join(loc["displayName"] for loc in locomotives)
+                num_locomotives = len(locomotives)
+
+                # Build summary string
+                if num_locomotives == 1:
+                    vehicle_summary = locomotive_names
+                else:
+                    vehicle_summary = f"{locomotive_names} (double-headed)"
+
+                num_wagons = vehicle_composition.get("num_wagons", 0)
+                if num_wagons > 0:
+                    vehicle_summary += f" + {num_wagons} wagons"
+
+            total_vehicles = vehicle_composition.get("total_vehicles")
+            total_length = vehicle_composition.get("total_length")
+            total_weight = vehicle_composition.get("total_weight")
+
+            # Store full composition as JSON
+            composition_json = json.dumps(vehicle_composition)
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
                 INSERT INTO train_sessions (
                     id, steam_id, server_code, server_name, train_number,
-                    train_name, start_station, end_station, vehicle, joined_at,
-                    baseline_distance, baseline_points
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    train_name, start_station, end_station, vehicle, vehicle_summary, joined_at,
+                    baseline_distance, baseline_points,
+                    traction_type, locomotive_names, num_locomotives, num_wagons,
+                    total_vehicles, total_length, total_weight, composition_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -149,10 +266,19 @@ class TrackerDatabase:
                     train_name,
                     start_station,
                     end_station,
-                    vehicle,
+                    vehicle,  # Keep original vehicle for NOT NULL constraint
+                    vehicle_summary,
                     now,
                     baseline_distance,
                     baseline_points,
+                    traction_type,
+                    locomotive_names,
+                    num_locomotives,
+                    num_wagons,
+                    total_vehicles,
+                    total_length,
+                    total_weight,
+                    composition_json,
                 ),
             )
             conn.commit()

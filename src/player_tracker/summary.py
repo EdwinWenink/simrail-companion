@@ -159,7 +159,14 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
             else:
                 duration = "In Progress"
 
-            print(f"\n{status} Train {session['train_number']} ({session['train_name']}) - {session['vehicle'][:40]}")
+            # Format vehicle information with new composition data
+            vehicle_info = session.get('vehicle_summary') or session.get('vehicle', 'Unknown')
+            if session.get('total_weight'):
+                vehicle_info += f" ({session['total_weight']:.0f}t)"
+            if session.get('total_length'):
+                vehicle_info += f" • {session['total_length']:.0f}m"
+
+            print(f"\n{status} Train {session['train_number']} ({session['train_name']}) - {vehicle_info[:60]}")
             print(f"   Route: {session['start_station']} → {session['end_station']}")
             print(f"   Server: {session['server_name']} ({session['server_code']})")
             print(f"   Started: {format_datetime(session['joined_at'])}")

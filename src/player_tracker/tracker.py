@@ -179,9 +179,52 @@ class PlayerTracker:
             self.start_steam_points = None
             logger.warning("⚠️  Could not fetch Steam stats for baseline - stats may be private or Steam API unavailable")
 
-        # Get vehicle name (first vehicle in the list)
-        # TODO - consider storing full vehicle composition in the database for richer session data
+        # Get vehicle name (first vehicle in the list) as fallback
         vehicle = activity["vehicles"][0] if activity["vehicles"] else "Unknown"
+
+        # Fetch detailed vehicle composition if we have a journey ID
+        composition = None
+        if self.current_journey_id:
+            try:
+                logger.debug("Fetching vehicle composition for journey %s", self.current_journey_id)
+                vehicles = await self.simrail_tools_client.get_vehicle_composition(self.current_journey_id)
+
+                if vehicles:
+                    # Determine traction type
+                    if vehicles.locomotives:
+                        traction_type = "LOCOMOTIVE"
+                    elif any(v.railcar.type == "ELECTRIC_MULTIPLE_UNIT" for v in vehicles.vehicles):
+                        traction_type = "EMU"
+                    else:
+                        traction_type = "MULTIPLE_UNIT"
+
+                    # Count wagons (non-locomotive, non-EMU vehicles)
+                    num_wagons = sum(
+                        1 for v in vehicles.vehicles
+                        if v.railcar.type not in ("LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT")
+                    )
+
+                    composition = {
+                        "traction_type": traction_type,
+                        "locomotives": [
+                            {
+                                "displayName": loc.displayName,
+                                "typeIdentifier": loc.typeIdentifier,
+                                "weight": loc.weight,
+                                "length": loc.length,
+                                "maxSpeed": loc.maxSpeed,
+                            }
+                            for loc in vehicles.locomotives
+                        ],
+                        "num_wagons": num_wagons,
+                        "total_vehicles": len(vehicles.vehicles),
+                        "total_length": sum(v.railcar.length for v in vehicles.vehicles),
+                        "total_weight": sum(v.railcar.weight + (v.loadWeight or 0) for v in vehicles.vehicles),
+                    }
+                    logger.debug("✓ Vehicle composition captured: %s locs, %s wagons",
+                                len(vehicles.locomotives), num_wagons)
+            except Exception as e:
+                logger.debug("Could not fetch vehicle composition: %s", e)
 
         session_id = self.db.create_train_session(
             steam_id=self.steam_id,
@@ -194,11 +237,25 @@ class PlayerTracker:
             vehicle=vehicle,
             baseline_distance=self.start_steam_distance,
             baseline_points=self.start_steam_points,
+            vehicle_composition=composition,
         )
         self.current_train_session_id = session_id
         self.recorded_stations = set()  # Clear recorded stations for new session
+
+        # Log with improved vehicle info
+        if composition and composition.get("locomotives"):
+            locs = composition["locomotives"]
+            if len(locs) == 1:
+                vehicle_info = locs[0]["displayName"]
+            else:
+                vehicle_info = f"{', '.join(loc['displayName'] for loc in locs)} (double-headed)"
+            if composition.get("num_wagons"):
+                vehicle_info += f" + {composition['num_wagons']} wagons"
+        else:
+            vehicle_info = vehicle
+
         logger.info(
-            f"🚂 Started driving train {activity['train_number']} ({activity['train_name']}) - {vehicle}"
+            f"🚂 Started driving train {activity['train_number']} ({activity['train_name']}) - {vehicle_info}"
         )
         logger.info(
             f"   Route: {activity['start_station']} → {activity['end_station']} on {activity['server_name']}"
