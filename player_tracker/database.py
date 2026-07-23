@@ -91,6 +91,12 @@ class TrackerDatabase:
                 CREATE INDEX IF NOT EXISTS idx_train_passages_station ON train_station_passages(station_name)
             """)
 
+            # Create unique constraint to prevent duplicate station passages
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_train_passages_unique
+                ON train_station_passages(train_session_id, station_name)
+            """)
+
             conn.commit()
 
             # Migration: Add baseline columns if they don't exist
@@ -184,6 +190,20 @@ class TrackerDatabase:
             row = cursor.fetchone()
             return dict(row) if row else None
 
+    def get_train_session_by_id(self, session_id: str) -> Optional[dict]:
+        """Get a specific train session by its ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT * FROM train_sessions
+                WHERE id = ?
+                """,
+                (session_id,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
     def create_station_session(
         self,
         steam_id: str,
@@ -234,20 +254,28 @@ class TrackerDatabase:
     def record_train_station_passage(
         self, train_session_id: str, station_name: str, stop_type: str
     ):
-        """Record a station passage during a train session."""
+        """Record a station passage during a train session.
+
+        Silently ignores duplicates due to unique constraint on (train_session_id, station_name).
+        """
         passage_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT INTO train_station_passages (
-                    id, train_session_id, station_name, passed_at, stop_type
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (passage_id, train_session_id, station_name, now, stop_type),
-            )
-            conn.commit()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO train_station_passages (
+                        id, train_session_id, station_name, passed_at, stop_type
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (passage_id, train_session_id, station_name, now, stop_type),
+                )
+                conn.commit()
+            except sqlite3.IntegrityError:
+                # Duplicate passage - station already recorded for this session
+                # This can happen if tracker polls at exact moment between time_type transitions
+                pass
 
     def get_active_station_session(self, steam_id: str) -> Optional[dict]:
         with sqlite3.connect(self.db_path) as conn:

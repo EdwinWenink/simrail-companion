@@ -215,6 +215,7 @@ class PlayerTracker:
         # Clear the cached journey ID and last next station since we're leaving this train
         self.current_journey_id = None
         self.last_next_station = None
+        self.recorded_stations.clear()  # Clear recorded stations when ending session
 
         # Try to get baseline from memory, otherwise from database
         baseline_distance = self.start_steam_distance
@@ -222,8 +223,8 @@ class PlayerTracker:
 
         if not baseline_distance or not baseline_points:
             # Try to get baseline from database (for stale sessions)
-            session = self.db.get_train_sessions(self.steam_id, limit=10000)
-            session = next((s for s in session if s['id'] == session_id), None)
+            # Use efficient lookup by ID instead of fetching all sessions
+            session = self.db.get_train_session_by_id(session_id)
             if session and session.get('baseline_distance') and session.get('baseline_points'):
                 baseline_distance = session['baseline_distance']
                 baseline_points = session['baseline_points']
@@ -238,6 +239,8 @@ class PlayerTracker:
                 )
                 # Don't close the session - user can manually review it later
                 self.current_train_session_id = None
+                self.start_steam_distance = None
+                self.start_steam_points = None
                 return
             else:
                 self.db.end_train_session(session_id, 0, 0)
@@ -245,6 +248,8 @@ class PlayerTracker:
                     "⚠️  Ended train session with no distance/points (missing start stats)"
                 )
                 self.current_train_session_id = None
+                self.start_steam_distance = None
+                self.start_steam_points = None
                 return
 
         # Get current Steam stats with retry for interrupted sessions
@@ -271,6 +276,8 @@ class PlayerTracker:
                 )
                 # Leave session open rather than recording incorrect 0 values
                 self.current_train_session_id = None
+                self.start_steam_distance = None
+                self.start_steam_points = None
                 return
             else:
                 # Normal session end, record zeros
@@ -279,6 +286,8 @@ class PlayerTracker:
                     "⚠️  Ended train session with no distance/points (missing end stats)"
                 )
                 self.current_train_session_id = None
+                self.start_steam_distance = None
+                self.start_steam_points = None
                 return
 
         # Calculate difference (baseline is guaranteed non-None here by the check above)
@@ -357,7 +366,7 @@ class PlayerTracker:
                     )
                     return
 
-            # Get ALL delays (including past) to record station passages
+            # Get ALL delays (including past) in one API call
             all_delays = await self.simrail_tools_client.get_journey_delays(journey_id, upcoming_only=False)
 
             # Record any past stations we haven't recorded yet
@@ -373,8 +382,8 @@ class PlayerTracker:
                         self.recorded_stations.add(delay.station_name)
                         logger.debug("Recorded passage: %s (%s)", delay.station_name, delay.stop_type)
 
-            # Get upcoming delays (filters out past events using realtimeTimeType)
-            delays = await self.simrail_tools_client.get_journey_delays(journey_id, upcoming_only=True)
+            # Filter for upcoming delays in Python (avoid second API call)
+            delays = [d for d in all_delays if d.time_type != "REAL"]
 
             if not delays:
                 logger.info("⚠️  No upcoming stations in timetable (journey may have ended)")

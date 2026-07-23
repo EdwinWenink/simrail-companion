@@ -124,7 +124,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
     if stats.get('station_passages'):
         print("\n🚉 STATIONS PASSED WHILE DRIVING TRAINS (Top 20)")
         print("-" * 80)
-        print(f"{'Station Name':<40} {'Total':<8} {'Stop':<8} {'Tech':<8} {'Pass':<8}")
+        print(f"{'Station Name':<40} {'Total':<8} {'Pax':<8} {'Tech':<8} {'Pass':<8}")
         print("-" * 80)
 
         # Sort by total passages
