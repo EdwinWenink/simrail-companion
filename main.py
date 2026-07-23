@@ -6,6 +6,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from player_tracker import PlayerTracker
 from player_tracker.summary import print_summary
+from player_tracker.lock import TrackerLock
 
 # Configure UTF-8 output for Windows console
 if sys.platform == 'win32':
@@ -25,6 +26,14 @@ async def main():
     steam_id = os.getenv("STEAM_ID")
     if not steam_id:
         raise ValueError("STEAM_ID environment variable is required")
+
+    # Acquire single-instance lock
+    lock = TrackerLock(steam_id)
+    try:
+        lock.acquire()
+    except RuntimeError as e:
+        print(f"\n❌ {e}\n")
+        return
 
     tracker = PlayerTracker(
         steam_id=steam_id,
@@ -84,6 +93,9 @@ async def main():
             await tracker.close()
         except Exception as e:
             print(f"Error during cleanup: {e}")
+
+        # Release the lock
+        lock.release()
 
         print("\n✅ Tracker stopped successfully\n")
 

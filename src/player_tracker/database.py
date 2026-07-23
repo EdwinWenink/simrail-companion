@@ -1,9 +1,12 @@
 import sqlite3
 import json
+import logging
 from datetime import datetime
 from typing import Optional
 import uuid
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class TrackerDatabase:
@@ -23,13 +26,21 @@ class TrackerDatabase:
                     train_name TEXT NOT NULL,
                     start_station TEXT NOT NULL,
                     end_station TEXT NOT NULL,
-                    vehicle TEXT NOT NULL,
                     joined_at TEXT NOT NULL,
                     left_at TEXT,
                     distance_meters INTEGER,
                     points INTEGER,
                     baseline_distance INTEGER,
-                    baseline_points INTEGER
+                    baseline_points INTEGER,
+                    vehicle_summary TEXT,
+                    traction_type TEXT,
+                    locomotive_names TEXT,
+                    num_locomotives INTEGER,
+                    num_wagons INTEGER,
+                    total_vehicles INTEGER,
+                    total_length REAL,
+                    total_weight REAL,
+                    composition_json TEXT
                 )
             """)
 
@@ -180,6 +191,27 @@ class TrackerDatabase:
                 """)
                 conn.commit()
 
+            # Migration: Copy vehicle to vehicle_summary if needed, then drop vehicle column
+            if 'vehicle' in columns:
+                # Copy data from vehicle to vehicle_summary if vehicle_summary is empty
+                if 'vehicle_summary' in columns:
+                    conn.execute("""
+                        UPDATE train_sessions
+                        SET vehicle_summary = vehicle
+                        WHERE vehicle_summary IS NULL
+                    """)
+                    conn.commit()
+
+                # Drop the old vehicle column
+                try:
+                    conn.execute("""
+                        ALTER TABLE train_sessions DROP COLUMN vehicle
+                    """)
+                    conn.commit()
+                    logger.info("✓ Migrated and dropped old 'vehicle' column")
+                except Exception as e:
+                    logger.warning("Could not drop vehicle column: %s", e)
+
     def create_train_session(
         self,
         steam_id: str,
@@ -251,34 +283,18 @@ class TrackerDatabase:
                 """
                 INSERT INTO train_sessions (
                     id, steam_id, server_code, server_name, train_number,
-                    train_name, start_station, end_station, vehicle, vehicle_summary, joined_at,
+                    train_name, start_station, end_station, vehicle_summary, joined_at,
                     baseline_distance, baseline_points,
                     traction_type, locomotive_names, num_locomotives, num_wagons,
                     total_vehicles, total_length, total_weight, composition_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    session_id,
-                    steam_id,
-                    server_code,
-                    server_name,
-                    train_number,
-                    train_name,
-                    start_station,
-                    end_station,
-                    vehicle,  # Keep original vehicle for NOT NULL constraint
-                    vehicle_summary,
-                    now,
-                    baseline_distance,
-                    baseline_points,
-                    traction_type,
-                    locomotive_names,
-                    num_locomotives,
-                    num_wagons,
-                    total_vehicles,
-                    total_length,
-                    total_weight,
-                    composition_json,
+                    session_id, steam_id, server_code, server_name, train_number,
+                    train_name, start_station, end_station, vehicle_summary, now,
+                    baseline_distance, baseline_points,
+                    traction_type, locomotive_names, num_locomotives, num_wagons,
+                    total_vehicles, total_length, total_weight, composition_json,
                 ),
             )
             conn.commit()
@@ -488,11 +504,11 @@ class TrackerDatabase:
             )
             station_stats = station_cursor.fetchone()
 
-            # Per-vehicle stats
+            # Per-vehicle stats (using vehicle_summary)
             vehicle_cursor = conn.execute(
                 """
                 SELECT
-                    vehicle,
+                    vehicle_summary,
                     COALESCE(SUM(distance_meters), 0) as distance,
                     COALESCE(SUM(points), 0) as points,
                     COALESCE(SUM(
@@ -501,8 +517,8 @@ class TrackerDatabase:
                         ELSE 0 END
                     ), 0) as time
                 FROM train_sessions
-                WHERE steam_id = ? AND left_at IS NOT NULL
-                GROUP BY vehicle
+                WHERE steam_id = ? AND left_at IS NOT NULL AND vehicle_summary IS NOT NULL
+                GROUP BY vehicle_summary
                 """,
                 (steam_id,),
             )

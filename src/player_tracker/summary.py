@@ -159,8 +159,8 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
             else:
                 duration = "In Progress"
 
-            # Format vehicle information with new composition data
-            vehicle_info = session.get('vehicle_summary') or session.get('vehicle', 'Unknown')
+            # Format vehicle information with composition data
+            vehicle_info = session.get('vehicle_summary', 'Unknown')
             if session.get('total_weight'):
                 vehicle_info += f" ({session['total_weight']:.0f}t)"
             if session.get('total_length'):
@@ -271,8 +271,15 @@ def print_active_sessions(db: TrackerDatabase, steam_id: str):
         start = datetime.fromisoformat(active_train['joined_at'])
         duration = datetime.now() - start
 
+        # Format vehicle information with composition data
+        vehicle_info = active_train.get('vehicle_summary', 'Unknown')
+        if active_train.get('total_weight'):
+            vehicle_info += f" ({active_train['total_weight']:.0f}t)"
+        if active_train.get('total_length'):
+            vehicle_info += f" • {active_train['total_length']:.0f}m"
+
         print(f"\n🚂 Driving Train {active_train['train_number']} ({active_train['train_name']})")
-        print(f"   Vehicle: {active_train['vehicle']}")
+        print(f"   Vehicle: {vehicle_info}")
         print(f"   Route: {active_train['start_station']} → {active_train['end_station']}")
         print(f"   Server: {active_train['server_name']} ({active_train['server_code']})")
         print(f"   Started: {format_datetime(active_train['joined_at'])}")
