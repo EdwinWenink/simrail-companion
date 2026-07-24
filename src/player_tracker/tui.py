@@ -263,7 +263,7 @@ class SessionsPanel(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         self.sessions_table = DataTable()
-        self.sessions_table.add_columns("Train", "Vehicle", "Distance", "Time")
+        self.sessions_table.add_columns("Train", "Vehicle", "Distance", "Points", "Time")
         self.sessions_table.zebra_stripes = True
         yield self.sessions_table
 
@@ -282,10 +282,15 @@ class SessionsPanel(VerticalScroll):
                 vehicle = session.get("vehicle_summary", "Unknown")
                 vehicle_display = vehicle[:20] if len(vehicle) <= 20 else vehicle[:17] + "..."
 
+                # Format points
+                points = session.get("points", 0) or 0
+                points_str = f"{points:,}" if points > 0 else "0"
+
                 self.sessions_table.add_row(
                     session["train_number"],
                     vehicle_display,
                     format_distance(session.get("distance_meters")),
+                    points_str,
                     format_duration(duration),
                 )
 
