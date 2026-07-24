@@ -4,6 +4,7 @@ import logging
 from simrail_api import SimRailClient
 from simrail_api.types import PlayerActivity
 from simrail_steam import SteamClient
+from simrail_steam.client import SteamAPIError
 from simrail_tools_api import SimRailToolsClient
 
 from .database import TrackerDatabase
@@ -187,7 +188,10 @@ class PlayerTracker:
         )
         self.current_station_session_id = session_id
         logger.info(
-            f"📍 Started dispatching at {activity['station_name']} ({activity['station_prefix']}) on {activity['server_name']}"
+            "📍 Started dispatching at %s (%s) on %s",
+            activity["station_name"],
+            activity["station_prefix"],
+            activity["server_name"],
         )
 
     def _clear_session_state_if_current(self, session_id: str):
@@ -343,10 +347,16 @@ class PlayerTracker:
             vehicle_info = vehicle
 
         logger.info(
-            f"🚂 Started driving train {activity['train_number']} ({activity['train_name']}) - {vehicle_info}"
+            "🚂 Started driving train %s (%s) - %s",
+            activity["train_number"],
+            activity["train_name"],
+            vehicle_info,
         )
         logger.info(
-            f"   Route: {activity['start_station']} → {activity['end_station']} on {activity['server_name']}"
+            "   Route: %s → %s on %s",
+            activity["start_station"],
+            activity["end_station"],
+            activity["server_name"],
         )
 
     async def _end_train_session(self, session_id: str, is_interrupted: bool = False):
@@ -432,7 +442,7 @@ class PlayerTracker:
                             max_retries,
                         )
                         break
-            except Exception as e:
+            except (SteamAPIError, Exception) as e:
                 if attempt < max_retries - 1:
                     logger.debug(
                         "Steam API attempt %s/%s failed: %s",
@@ -662,10 +672,16 @@ class PlayerTracker:
 
                 # Format line
                 logger.info(
-                    f"  {i}. {stop_indicator} {station_name:<32} "
-                    f"{scheduled}→{realtime} "
-                    f"{delay_icon}{delay_str:<8} "
-                    f"{time_indicator}{dispatcher_info}"
+                    "  %s. %s %-32s %s→%s %s%-8s %s%s",
+                    i,
+                    stop_indicator,
+                    station_name,
+                    scheduled,
+                    realtime,
+                    delay_icon,
+                    delay_str,
+                    time_indicator,
+                    dispatcher_info,
                 )
 
             logger.info("%s\n", "─" * 80)
@@ -730,9 +746,10 @@ class PlayerTracker:
         )
 
         logger.info(
-            f"✅ Steam stats synced: {steam_stats['DISTANCE_M']:,}m, "
-            f"{steam_stats['SCORE']:,} points, "
-            f"{steam_stats['DISPATCHER_TIME']} min dispatcher time"
+            "✅ Steam stats synced: %s m, %s points, %s min dispatcher time",
+            f"{steam_stats['DISTANCE_M']:,}",
+            f"{steam_stats['SCORE']:,}",
+            steam_stats["DISPATCHER_TIME"],
         )
 
     async def close(self):

@@ -11,14 +11,16 @@ from .types import PlayerStats, PlayerSummary, SimRailStats
 logger = logging.getLogger(__name__)
 
 
+class SteamAPIError(Exception):
+    """Raised when Steam API requests fail after all retries."""
+
+
 class SteamClient:
     SIMRAIL_APP_ID = 1422130
     BASE_URL = "https://api.steampowered.com"
     DEFAULT_TIMEOUT = 10
 
-    def __init__(
-        self, api_keys: list[str] | None = None, timeout: int = DEFAULT_TIMEOUT
-    ):
+    def __init__(self, api_keys: list[str] | None = None, timeout: int = DEFAULT_TIMEOUT):
         if api_keys is None:
             api_keys = self._load_api_keys_from_env()
 
@@ -61,22 +63,22 @@ class SteamClient:
 
             try:
                 timeout = aiohttp.ClientTimeout(total=self.timeout)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(full_url) as response:
-                        response.raise_for_status()
-                        return await response.json()
+                async with (
+                    aiohttp.ClientSession(timeout=timeout) as session,
+                    session.get(full_url) as response,
+                ):
+                    response.raise_for_status()
+                    return await response.json()
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 retries += 1
-                logger.warning(
-                    "Steam request failed: %s, retry %s/%s", e, retries, max_retries
-                )
+                logger.warning("Steam request failed: %s, retry %s/%s", e, retries, max_retries)
 
                 if retries < max_retries:
                     await asyncio.sleep(retries)
                 else:
                     raise
 
-        raise Exception(f"Failed to fetch from Steam API after {max_retries} retries")
+        raise SteamAPIError(f"Failed to fetch from Steam API after {max_retries} retries")
 
     async def get_player_summary(self, steam_id: str) -> PlayerSummary | None:
         url = (
@@ -92,7 +94,7 @@ class SteamClient:
                 return None
 
             return players[0]
-        except Exception as e:
+        except (SteamAPIError, Exception) as e:
             logger.error("Error fetching player summary for %s: %s", steam_id, e)
             return None
 
@@ -110,7 +112,7 @@ class SteamClient:
                 return None
 
             return player_stats
-        except Exception as e:
+        except (SteamAPIError, Exception) as e:
             logger.error("Error fetching player stats for %s: %s", steam_id, e)
             return None
 

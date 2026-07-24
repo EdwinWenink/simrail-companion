@@ -21,10 +21,12 @@ class SimRailToolsClient:
         url = f"{self.BASE_URL}/{endpoint}"
         try:
             timeout = aiohttp.ClientTimeout(total=self.timeout)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    return await response.json()
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as session,
+                session.get(url) as response,
+            ):
+                response.raise_for_status()
+                return await response.json()
         except aiohttp.ClientResponseError as e:
             logger.error("SimRail Tools API HTTP %s: %s - %s", e.status, e.message, url)
             raise
@@ -56,9 +58,7 @@ class SimRailToolsClient:
                     server_id = server.get("id")
                     # Cache for future use
                     self._server_cache[server_code] = server_id
-                    logger.debug(
-                        "Resolved server code %s -> %s", server_code, server_id
-                    )
+                    logger.debug("Resolved server code %s -> %s", server_code, server_id)
                     return server_id
 
             logger.warning("Server code '%s' not found", server_code)
@@ -111,9 +111,7 @@ class SimRailToolsClient:
                     normalized_number = number.strip().lstrip("0") or number
 
                     if normalized_number == normalized_search or number == train_number:
-                        logger.debug(
-                            "Found match in summary: %s -> %s", number, journey_id
-                        )
+                        logger.debug("Found match in summary: %s -> %s", number, journey_id)
                         return journey_id
 
                 # Fallback: fetch full journey and check all events
@@ -126,13 +124,8 @@ class SimRailToolsClient:
                             number = event.transport.number
                             normalized_number = number.strip().lstrip("0") or number
 
-                            if (
-                                normalized_number == normalized_search
-                                or number == train_number
-                            ):
-                                logger.debug(
-                                    "Found match in event: %s -> %s", number, journey_id
-                                )
+                            if normalized_number == normalized_search or number == train_number:
+                                logger.debug("Found match in event: %s -> %s", number, journey_id)
                                 return journey_id
                 except Exception as e:
                     # Journey fetch failed, skip this one
@@ -152,18 +145,12 @@ class SimRailToolsClient:
             return Journey(**data)
         except aiohttp.ClientResponseError as e:
             if e.status == 404:
-                logger.warning(
-                    "Journey %s not found (404) - may have ended", journey_id
-                )
+                logger.warning("Journey %s not found (404) - may have ended", journey_id)
             else:
-                logger.error(
-                    "HTTP %s fetching journey %s: %s", e.status, journey_id, e.message
-                )
+                logger.error("HTTP %s fetching journey %s: %s", e.status, journey_id, e.message)
             return None
         except Exception as e:
-            logger.error(
-                "Error fetching journey %s: %s - %s", journey_id, type(e).__name__, e
-            )
+            logger.error("Error fetching journey %s: %s - %s", journey_id, type(e).__name__, e)
             return None
 
     def calculate_delay(self, event: JourneyEvent) -> DelayInfo:
@@ -226,9 +213,10 @@ class SimRailToolsClient:
             start_index = last_real_index + 1
 
             logger.debug(
-                f"Journey has {len(events)} events, "
-                f"last REAL at index {last_real_index}, "
-                f"showing {len(events) - start_index} upcoming"
+                "Journey has %s events, last REAL at index %s, showing %s upcoming",
+                len(events),
+                last_real_index,
+                len(events) - start_index,
             )
 
             for event in events[start_index:]:
@@ -252,9 +240,7 @@ class SimRailToolsClient:
             server_code_or_id: Server code (e.g., 'int1') or UUID
             train_number: Train number to search for
         """
-        journey_id = await self.find_journey_by_train_number(
-            server_code_or_id, train_number
-        )
+        journey_id = await self.find_journey_by_train_number(server_code_or_id, train_number)
         if not journey_id:
             return None
 
@@ -283,9 +269,7 @@ class SimRailToolsClient:
 
         return result
 
-    async def get_vehicle_composition(
-        self, journey_id: str
-    ) -> VehicleSequence | None:
+    async def get_vehicle_composition(self, journey_id: str) -> VehicleSequence | None:
         """Get the vehicle composition for a journey.
 
         Args:
@@ -299,9 +283,7 @@ class SimRailToolsClient:
             return VehicleSequence(**data)
         except aiohttp.ClientResponseError as e:
             if e.status == 404:
-                logger.warning(
-                    "Vehicle composition for journey %s not found (404)", journey_id
-                )
+                logger.warning("Vehicle composition for journey %s not found (404)", journey_id)
             else:
                 logger.error(
                     "HTTP %s fetching vehicle composition for journey %s: %s",

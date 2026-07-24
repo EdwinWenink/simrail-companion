@@ -19,10 +19,12 @@ class SimRailClient:
         url = f"{self.BASE_URL}/{endpoint}"
         try:
             timeout = aiohttp.ClientTimeout(total=self.timeout)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    return await response.json()
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as session,
+                session.get(url) as response,
+            ):
+                response.raise_for_status()
+                return await response.json()
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             logger.error("SimRail API request failed: %s", e)
             raise
