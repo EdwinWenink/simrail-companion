@@ -113,30 +113,33 @@ class CompositionPanel(Static):
         # WAGONS/CARRIAGES (top level summary with expandable hint)
         num_wagons = comp.get("num_wagons", 0)
         if num_wagons > 0:
+            # Get wagon details (filter out locomotives and EMUs)
+            wagons = [
+                v
+                for v in comp.get("vehicles", [])
+                if v.get("type") not in ["LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT"]
+            ]
+
             comp_text += f"\n🚃 Wagons ({num_wagons})"
             if not self.wagons_expanded:
                 comp_text += " [click to expand]"
             comp_text += "\n"
-
-            # Get wagon details
-            wagons = [
-                v for v in comp.get("vehicles", []) if v.get("type") not in ["LOCOMOTIVE", "EMU"]
-            ]
 
             if self.wagons_expanded and wagons:
                 comp_text += "\n"
                 for i, wagon in enumerate(wagons, 1):
                     name = wagon.get("displayName", wagon.get("name", "Unknown"))
                     weight = wagon.get("weight", 0) or 0
-                    load = wagon.get("loadWeight", 0) or 0
-                    total = weight + load
+                    load_weight = wagon.get("loadWeight") or 0
+                    load_type = wagon.get("load")
+
                     comp_text += f"  {i}. {name}\n"
-                    comp_text += f"     {total:.1f}t "
-                    if load > 0:
-                        comp_text += f"({weight:.1f}t + {load:.1f}t load)"
+                    comp_text += f"     Railcar: {weight:.1f}t"
+                    if load_weight > 0:
+                        comp_text += f", Load: {load_weight}t"
+                        if load_type:
+                            comp_text += f" ({load_type})"
                     comp_text += "\n"
-                    if wagon.get("load"):
-                        comp_text += f"     Load: {wagon['load']}\n"
 
         # TOTAL STATS (top level)
         comp_text += "\n"

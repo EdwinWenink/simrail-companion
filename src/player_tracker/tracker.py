@@ -268,6 +268,9 @@ class PlayerTracker:
                     # Count wagons (non-locomotive, non-EMU vehicles)
                     num_wagons = len(vehicles.wagons)
 
+                    # Build a structured representation of the vehicle composition
+                    # This will be stored at composition_json
+                    # TODO make a Pydantic model for this structure for better validation and type safety
                     composition = {
                         "traction_type": traction_type,
                         "locomotives": [
