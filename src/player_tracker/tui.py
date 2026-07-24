@@ -158,13 +158,21 @@ class DispatcherStationsPanel(Static):
         return self.stations_text
 
 
-class UpcomingStationsPanel(Static):
+class UpcomingStationsPanel(VerticalScroll):
     """Panel showing upcoming stations with delays."""
 
     upcoming_text = reactive("No upcoming station data")
 
-    def render(self) -> str:
-        return self.upcoming_text
+    def compose(self) -> ComposeResult:
+        yield Static(id="upcoming-content")
+
+    def watch_upcoming_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        try:
+            content = self.query_one("#upcoming-content", Static)
+            content.update(new_text)
+        except Exception as e:
+            logging.getLogger(__name__).debug("Could not update upcoming stations: %s", e)
 
 
 class PassedStationsPanel(VerticalScroll):
@@ -620,6 +628,9 @@ Player is offline or not in a train/station."""
         upcoming_panel = self.query_one(UpcomingStationsPanel)
         if active_train and self.tracker.current_journey_id:
             try:
+                logging.getLogger(__name__).debug(
+                    "Fetching delays for journey %s", self.tracker.current_journey_id[:16]
+                )
                 # Get delays from SimRail Tools API
                 delays = await self.tracker.simrail_tools_client.get_journey_delays(
                     self.tracker.current_journey_id, upcoming_only=False
@@ -691,8 +702,14 @@ Player is offline or not in a train/station."""
                 else:
                     upcoming_panel.upcoming_text = "No upcoming stations"
             except Exception as e:
+                logging.getLogger(__name__).exception("Error fetching upcoming stations")
                 upcoming_panel.upcoming_text = f"Could not fetch delay info:\n{e}"
         else:
+            logging.getLogger(__name__).debug(
+                "No upcoming stations: active_train=%s, journey_id=%s",
+                bool(active_train),
+                self.tracker.current_journey_id[:16] if self.tracker.current_journey_id else None,
+            )
             upcoming_panel.upcoming_text = "No active train or no journey data"
 
         # Update passed stations panel
