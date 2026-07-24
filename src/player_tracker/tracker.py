@@ -557,7 +557,7 @@ class PlayerTracker:
                     )
                     return
 
-            # Get ALL delays (including past) in one API call
+            # Get ALL delays (including past) in one API call for station passage recording
             all_delays = await self.simrail_tools_client.get_journey_delays(
                 journey_id, upcoming_only=False
             )
@@ -582,8 +582,10 @@ class PlayerTracker:
                             delay.stop_type,
                         )
 
-            # Filter for upcoming delays in Python (avoid second API call)
-            delays = [d for d in all_delays if d.time_type != "REAL"]
+            # Get upcoming delays (API properly filters after last REAL event)
+            delays = await self.simrail_tools_client.get_journey_delays(
+                journey_id, upcoming_only=True
+            )
 
             if not delays:
                 logger.info("⚠️  No upcoming stations in timetable (journey may have ended)")

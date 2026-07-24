@@ -309,6 +309,8 @@ class SessionsPanel(VerticalScroll):
 class TrackerDashboard(App):
     """A Textual app for real-time SimRail session tracking."""
 
+    DEFAULT_CLASSES = "textual-light"
+
     CSS = """
     Screen {
         background: $surface;
@@ -630,13 +632,13 @@ Elapsed: {format_duration(elapsed)}"""
                 logging.getLogger(__name__).debug(
                     "Fetching delays for journey %s", self.tracker.current_journey_id[:16]
                 )
-                # Get delays from SimRail Tools API
+                # Get delays from SimRail Tools API (API filters to upcoming only)
                 delays = await self.tracker.simrail_tools_client.get_journey_delays(
-                    self.tracker.current_journey_id, upcoming_only=False
+                    self.tracker.current_journey_id, upcoming_only=True
                 )
 
-                # Filter for upcoming only
-                upcoming_delays = [d for d in delays if d.time_type != "REAL"][:5]
+                # Take first 5 upcoming stations
+                upcoming_delays = delays[:5]
 
                 if upcoming_delays:
                     lines = ["Next 5 Stations:\n"]
