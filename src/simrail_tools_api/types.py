@@ -1,5 +1,6 @@
-from typing import Optional, Literal
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel
 
 # Type aliases for reused Literals
@@ -25,10 +26,10 @@ TransportType = Literal[
 
 class JourneyTransport(BaseModel):
     category: str
-    categoryExternal: Optional[str] = None
+    categoryExternal: str | None = None
     number: str
-    line: Optional[str] = None
-    label: Optional[str] = None
+    line: str | None = None
+    label: str | None = None
     type: TransportType
     maxSpeed: int
 
@@ -62,26 +63,26 @@ class JourneyEvent(BaseModel):
     realtimeTime: datetime
     realtimeTimeType: RealtimeTimeType
     stopType: StopType
-    scheduledPassengerStop: Optional[JourneyStopInfo] = None
-    realtimePassengerStop: Optional[JourneyStopInfo] = None
+    scheduledPassengerStop: JourneyStopInfo | None = None
+    realtimePassengerStop: JourneyStopInfo | None = None
     transport: JourneyTransport
 
 
 class JourneyLiveData(BaseModel):
     speed: int
     position: GeoPosition
-    driver: Optional[dict] = None  # Driver information when available
-    nextSignal: Optional[dict] = None  # Next signal information when available
+    driver: dict | None = None  # Driver information when available
+    nextSignal: dict | None = None  # Next signal information when available
 
 
 class Journey(BaseModel):
     journeyId: str
     serverId: str
     lastUpdated: str
-    firstSeenTime: Optional[str] = None
-    lastSeenTime: Optional[str] = None
+    firstSeenTime: str | None = None
+    lastSeenTime: str | None = None
     journeyCancelled: bool
-    liveData: Optional[JourneyLiveData] = None
+    liveData: JourneyLiveData | None = None
     events: list[JourneyEvent]
 
 

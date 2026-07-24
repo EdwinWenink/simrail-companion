@@ -1,10 +1,9 @@
 import asyncio
 import logging
-from typing import Optional
 
 import aiohttp
 
-from .types import Journey, JourneyEvent, DelayInfo
+from .types import DelayInfo, Journey, JourneyEvent
 from .vehicle_types import VehicleSequence
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,7 @@ class SimRailToolsClient:
         except aiohttp.ClientResponseError as e:
             logger.error("SimRail Tools API HTTP %s: %s - %s", e.status, e.message, url)
             raise
-        except asyncio.TimeoutError as e:
+        except asyncio.TimeoutError:
             logger.error("SimRail Tools API timeout: %s", url)
             raise
         except Exception as e:
@@ -41,7 +40,7 @@ class SimRailToolsClient:
             )
             raise
 
-    async def get_server_id_by_code(self, server_code: str) -> Optional[str]:
+    async def get_server_id_by_code(self, server_code: str) -> str | None:
         """Convert server code (e.g., 'int1') to server UUID."""
         # Check cache first
         if server_code in self._server_cache:
@@ -70,7 +69,7 @@ class SimRailToolsClient:
 
     async def find_journey_by_train_number(
         self, server_code_or_id: str, train_number: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Find journey ID by train number on a specific server.
 
         Args:
@@ -146,7 +145,7 @@ class SimRailToolsClient:
             logger.error("Error finding journey by train number: %s", e)
             return None
 
-    async def get_journey(self, journey_id: str) -> Optional[Journey]:
+    async def get_journey(self, journey_id: str) -> Journey | None:
         """Get full journey details including timetable."""
         try:
             data = await self._fetch(f"sit-journeys/v2/by-id/{journey_id}")
@@ -246,7 +245,7 @@ class SimRailToolsClient:
         server_code_or_id: str,
         train_number: str,
         include_station_name: bool = False,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get current delay status for a train.
 
         Args:
@@ -286,7 +285,7 @@ class SimRailToolsClient:
 
     async def get_vehicle_composition(
         self, journey_id: str
-    ) -> Optional[VehicleSequence]:
+    ) -> VehicleSequence | None:
         """Get the vehicle composition for a journey.
 
         Args:

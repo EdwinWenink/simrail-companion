@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional, Literal
+from typing import Literal, TypedDict
 
 
 class Server(TypedDict):
@@ -14,13 +14,13 @@ class TrainData(TypedDict):
     Latititute: float
     Longitute: float
     VDDelayedTimetableIndex: int
-    ControlledBySteamID: Optional[str]
-    ControlledByXboxID: Optional[str]
+    ControlledBySteamID: str | None
+    ControlledByXboxID: str | None
     Velocity: float
     DistanceToSignalInFront: float
-    SignalInFront: Optional[str]
+    SignalInFront: str | None
     SignalInFrontSpeed: float
-    RequiredMapDLCs: Optional[list[str]]
+    RequiredMapDLCs: list[str] | None
 
 
 class Train(TypedDict):
@@ -60,16 +60,16 @@ class PlayerActivity(TypedDict):
     server_code: str
     server_name: str
     # For trains
-    train_number: Optional[str]
-    train_name: Optional[str]
-    start_station: Optional[str]
-    end_station: Optional[str]
-    vehicles: Optional[list[str]]
-    velocity: Optional[float]
-    signal_in_front: Optional[str]
-    distance_to_signal: Optional[float]
-    signal_speed_limit: Optional[float]
-    run_id: Optional[str]
+    train_number: str | None
+    train_name: str | None
+    start_station: str | None
+    end_station: str | None
+    vehicles: list[str] | None
+    velocity: float | None
+    signal_in_front: str | None
+    distance_to_signal: float | None
+    signal_speed_limit: float | None
+    run_id: str | None
     # For stations
-    station_name: Optional[str]
-    station_prefix: Optional[str]
+    station_name: str | None
+    station_prefix: str | None

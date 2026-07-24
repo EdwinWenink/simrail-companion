@@ -1,5 +1,5 @@
 from .client import SteamClient
-from .types import PlayerSummary, PlayerStats, SimRailStats
+from .types import PlayerStats, PlayerSummary, SimRailStats
 
 __version__ = "0.1.0"
-__all__ = ["SteamClient", "PlayerSummary", "PlayerStats", "SimRailStats"]
+__all__ = ["PlayerStats", "PlayerSummary", "SimRailStats", "SteamClient"]

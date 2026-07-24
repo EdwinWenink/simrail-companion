@@ -1,5 +1,5 @@
 from .client import SimRailClient
-from .types import Server, Train, Station, PlayerActivity
+from .types import PlayerActivity, Server, Station, Train
 
 __version__ = "0.1.0"
-__all__ = ["SimRailClient", "Server", "Train", "Station", "PlayerActivity"]
+__all__ = ["PlayerActivity", "Server", "SimRailClient", "Station", "Train"]

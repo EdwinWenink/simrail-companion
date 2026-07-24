@@ -1,8 +1,8 @@
 """Single-instance lock to prevent multiple trackers running simultaneously."""
 
+import logging
 import os
 import sys
-import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,10 @@ class TrackerLock:
                 import subprocess
 
                 result = subprocess.run(
-                    ["tasklist", "/FI", f"PID eq {pid}"], capture_output=True, text=True
+                    ["tasklist", "/FI", f"PID eq {pid}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 return str(pid) in result.stdout
             else:

@@ -1,6 +1,16 @@
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+
 from .database import TrackerDatabase
+
+
+def format_vehicle_info(session: dict) -> str:
+    """Format vehicle information with optional weight and length."""
+    vehicle_info = session.get("vehicle_summary", "Unknown")
+    if session.get("total_weight"):
+        vehicle_info += f" ({session['total_weight']:.0f}t)"
+    if session.get("total_length"):
+        vehicle_info += f" • {session['total_length']:.0f}m"
+    return vehicle_info
 
 
 def format_duration(seconds: float) -> str:
@@ -190,11 +200,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
                 duration = "In Progress"
 
             # Format vehicle information with composition data
-            vehicle_info = session.get("vehicle_summary", "Unknown")
-            if session.get("total_weight"):
-                vehicle_info += f" ({session['total_weight']:.0f}t)"
-            if session.get("total_length"):
-                vehicle_info += f" • {session['total_length']:.0f}m"
+            vehicle_info = format_vehicle_info(session)
 
             print(
                 f"\n{status} Train {session['train_number']} ({session['train_name']}) - {vehicle_info[:60]}"
@@ -241,7 +247,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
                 print(f"   Duration: {duration}")
 
     # ===== ACTIVITY TIMELINE =====
-    print(f"\n📅 RECENT ACTIVITY TIMELINE")
+    print("\n📅 RECENT ACTIVITY TIMELINE")
     print("-" * 80)
 
     # Combine and sort all sessions by time
@@ -261,7 +267,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
 
     for item in all_sessions[:10]:
         dt = datetime.fromisoformat(item["time"])
-        time_ago = datetime.now() - dt
+        time_ago = datetime.now(timezone.utc) - dt
 
         if time_ago < timedelta(hours=1):
             time_ago_str = f"{int(time_ago.total_seconds() / 60)} minutes ago"
@@ -301,14 +307,10 @@ def print_active_sessions(db: TrackerDatabase, steam_id: str):
 
     if active_train:
         start = datetime.fromisoformat(active_train["joined_at"])
-        duration = datetime.now() - start
+        duration = datetime.now(timezone.utc) - start
 
         # Format vehicle information with composition data
-        vehicle_info = active_train.get("vehicle_summary", "Unknown")
-        if active_train.get("total_weight"):
-            vehicle_info += f" ({active_train['total_weight']:.0f}t)"
-        if active_train.get("total_length"):
-            vehicle_info += f" • {active_train['total_length']:.0f}m"
+        vehicle_info = format_vehicle_info(active_train)
 
         print(
             f"\n🚂 Driving Train {active_train['train_number']} ({active_train['train_name']})"
@@ -325,7 +327,7 @@ def print_active_sessions(db: TrackerDatabase, steam_id: str):
 
     if active_station:
         start = datetime.fromisoformat(active_station["joined_at"])
-        duration = datetime.now() - start
+        duration = datetime.now(timezone.utc) - start
 
         print(
             f"\n📍 Dispatching at {active_station['station_name']} ({active_station['station_prefix']})"

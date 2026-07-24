@@ -3,11 +3,10 @@ import json
 import logging
 import os
 import random
-from typing import Optional
 
 import aiohttp
 
-from .types import PlayerSummary, PlayerStats, SimRailStats
+from .types import PlayerStats, PlayerSummary, SimRailStats
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ class SteamClient:
     DEFAULT_TIMEOUT = 10
 
     def __init__(
-        self, api_keys: Optional[list[str]] = None, timeout: int = DEFAULT_TIMEOUT
+        self, api_keys: list[str] | None = None, timeout: int = DEFAULT_TIMEOUT
     ):
         if api_keys is None:
             api_keys = self._load_api_keys_from_env()
@@ -79,7 +78,7 @@ class SteamClient:
 
         raise Exception(f"Failed to fetch from Steam API after {max_retries} retries")
 
-    async def get_player_summary(self, steam_id: str) -> Optional[PlayerSummary]:
+    async def get_player_summary(self, steam_id: str) -> PlayerSummary | None:
         url = (
             f"{self.BASE_URL}/ISteamUser/GetPlayerSummaries/v2/"
             f"?key=[STEAMKEY]&format=json&steamids={steam_id}"
@@ -97,7 +96,7 @@ class SteamClient:
             logger.error("Error fetching player summary for %s: %s", steam_id, e)
             return None
 
-    async def get_player_stats(self, steam_id: str) -> Optional[PlayerStats]:
+    async def get_player_stats(self, steam_id: str) -> PlayerStats | None:
         url = (
             f"{self.BASE_URL}/ISteamUserStats/GetUserStatsForGame/v0002/"
             f"?appid={self.SIMRAIL_APP_ID}&key=[STEAMKEY]&steamid={steam_id}"
@@ -115,7 +114,7 @@ class SteamClient:
             logger.error("Error fetching player stats for %s: %s", steam_id, e)
             return None
 
-    async def get_simrail_stats(self, steam_id: str) -> Optional[SimRailStats]:
+    async def get_simrail_stats(self, steam_id: str) -> SimRailStats | None:
         stats = await self.get_player_stats(steam_id)
 
         if not stats:

@@ -1,8 +1,8 @@
 """Pydantic models for vehicle composition data."""
 
-from typing import Optional, Literal
-from pydantic import BaseModel
+from typing import Literal
 
+from pydantic import BaseModel
 
 # Type alias for vehicle loads
 VehicleLoad = Literal[
@@ -35,10 +35,10 @@ class Railcar(BaseModel):
 
     id: str
     displayName: str
-    name: Optional[str] = None
+    name: str | None = None
     type: VehicleType
     typeIdentifier: str
-    requiredDlcId: Optional[str] = None
+    requiredDlcId: str | None = None
     designation: str
     producer: str
     productionYears: str
@@ -52,8 +52,8 @@ class Vehicle(BaseModel):
     """A vehicle in a train composition."""
 
     indexInGroup: int
-    loadWeight: Optional[int] = None
-    load: Optional[VehicleLoad] = None
+    loadWeight: int | None = None
+    load: VehicleLoad | None = None
     railcar: Railcar
 
 
@@ -98,7 +98,7 @@ class VehicleSequence(BaseModel):
         return len(self.locomotives) > 1
 
     @property
-    def primary_locomotive(self) -> Optional[Railcar]:
+    def primary_locomotive(self) -> Railcar | None:
         """Get the first (primary) locomotive, or None if no locomotive exists."""
         locs = self.locomotives
         return locs[0] if locs else None

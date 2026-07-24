@@ -1,5 +1,5 @@
-from typing import TypedDict, Optional
 from datetime import datetime
+from typing import TypedDict
 
 
 class TrainSession(TypedDict):
@@ -13,9 +13,9 @@ class TrainSession(TypedDict):
     end_station: str
     vehicle: str
     joined_at: datetime
-    left_at: Optional[datetime]
-    distance_meters: Optional[int]
-    points: Optional[int]
+    left_at: datetime | None
+    distance_meters: int | None
+    points: int | None
 
 
 class StationSession(TypedDict):
@@ -26,7 +26,7 @@ class StationSession(TypedDict):
     station_name: str
     station_prefix: str
     joined_at: datetime
-    left_at: Optional[datetime]
+    left_at: datetime | None
 
 
 class PlayerStats(TypedDict):

@@ -1,10 +1,9 @@
 import asyncio
 import logging
-from typing import Optional
 
 import aiohttp
 
-from .types import Server, Train, Station, PlayerActivity
+from .types import PlayerActivity, Server, Station, Train
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class SimRailClient:
             return data["data"]
         return []
 
-    async def find_player(self, steam_id: str) -> Optional[PlayerActivity]:
+    async def find_player(self, steam_id: str) -> PlayerActivity | None:
         servers = await self.get_servers()
 
         for server in servers:

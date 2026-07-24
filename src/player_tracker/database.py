@@ -1,10 +1,8 @@
-import sqlite3
 import json
 import logging
-from datetime import datetime
-from typing import Optional
+import sqlite3
 import uuid
-from pathlib import Path
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -111,106 +109,96 @@ class TrackerDatabase:
 
             conn.commit()
 
-            # Migration: Add baseline columns if they don't exist
+            # Migration: Add columns if they don't exist (fetch schema once)
             cursor = conn.execute("PRAGMA table_info(train_sessions)")
             columns = [row[1] for row in cursor.fetchall()]
+
+            migration_needed = False
 
             if "baseline_distance" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN baseline_distance INTEGER
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "baseline_points" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN baseline_points INTEGER
                 """)
-                conn.commit()
-
-            # Migration: Add vehicle composition columns if they don't exist
-            cursor = conn.execute("PRAGMA table_info(train_sessions)")
-            columns = [row[1] for row in cursor.fetchall()]
+                migration_needed = True
 
             # Rename 'vehicle' to 'vehicle_summary' if needed
             if "vehicle" in columns and "vehicle_summary" not in columns:
-                # SQLite doesn't support RENAME COLUMN directly in older versions
-                # We'll add new column and copy data
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN vehicle_summary TEXT
                 """)
                 conn.execute("""
                     UPDATE train_sessions SET vehicle_summary = vehicle
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "traction_type" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN traction_type TEXT
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "locomotive_names" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN locomotive_names TEXT
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "num_locomotives" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN num_locomotives INTEGER
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "num_wagons" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN num_wagons INTEGER
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "total_vehicles" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN total_vehicles INTEGER
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "total_length" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN total_length REAL
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "total_weight" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN total_weight REAL
                 """)
-                conn.commit()
+                migration_needed = True
 
             if "composition_json" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN composition_json TEXT
                 """)
-                conn.commit()
+                migration_needed = True
 
-            # Migration: Copy vehicle to vehicle_summary if needed, then drop vehicle column
+            # Drop old vehicle column if it exists
             if "vehicle" in columns:
-                # Copy data from vehicle to vehicle_summary if vehicle_summary is empty
-                if "vehicle_summary" in columns:
-                    conn.execute("""
-                        UPDATE train_sessions
-                        SET vehicle_summary = vehicle
-                        WHERE vehicle_summary IS NULL
-                    """)
-                    conn.commit()
-
-                # Drop the old vehicle column
                 try:
                     conn.execute("""
                         ALTER TABLE train_sessions DROP COLUMN vehicle
                     """)
-                    conn.commit()
                     logger.info("✓ Migrated and dropped old 'vehicle' column")
+                    migration_needed = True
                 except Exception as e:
                     logger.warning("Could not drop vehicle column: %s", e)
+
+            # Single commit for all migrations
+            if migration_needed:
+                conn.commit()
 
     def create_train_session(
         self,
@@ -222,9 +210,9 @@ class TrackerDatabase:
         start_station: str,
         end_station: str,
         vehicle: str,
-        baseline_distance: Optional[int] = None,
-        baseline_points: Optional[int] = None,
-        vehicle_composition: Optional[dict] = None,
+        baseline_distance: int | None = None,
+        baseline_points: int | None = None,
+        vehicle_composition: dict | None = None,
     ) -> str:
         """Create a new train session.
 
@@ -242,7 +230,7 @@ class TrackerDatabase:
                 }
         """
         session_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Extract composition data if provided
         vehicle_summary = vehicle
@@ -319,7 +307,7 @@ class TrackerDatabase:
         return session_id
 
     def end_train_session(self, session_id: str, distance_meters: int, points: int):
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -332,7 +320,7 @@ class TrackerDatabase:
             )
             conn.commit()
 
-    def get_active_train_session(self, steam_id: str) -> Optional[dict]:
+    def get_active_train_session(self, steam_id: str) -> dict | None:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
@@ -347,7 +335,7 @@ class TrackerDatabase:
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def get_train_session_by_id(self, session_id: str) -> Optional[dict]:
+    def get_train_session_by_id(self, session_id: str) -> dict | None:
         """Get a specific train session by its ID."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -370,7 +358,7 @@ class TrackerDatabase:
         station_prefix: str,
     ) -> str:
         session_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -395,7 +383,7 @@ class TrackerDatabase:
         return session_id
 
     def end_station_session(self, session_id: str):
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -416,7 +404,7 @@ class TrackerDatabase:
         Silently ignores duplicates due to unique constraint on (train_session_id, station_name).
         """
         passage_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             try:
@@ -434,7 +422,7 @@ class TrackerDatabase:
                 # This can happen if tracker polls at exact moment between time_type transitions
                 pass
 
-    def get_active_station_session(self, steam_id: str) -> Optional[dict]:
+    def get_active_station_session(self, steam_id: str) -> dict | None:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
@@ -604,7 +592,7 @@ class TrackerDatabase:
         dispatcher_time_minutes: int,
     ):
         """Save a snapshot of Steam stats."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -618,7 +606,7 @@ class TrackerDatabase:
             )
             conn.commit()
 
-    def get_latest_steam_stats(self, steam_id: str) -> Optional[dict]:
+    def get_latest_steam_stats(self, steam_id: str) -> dict | None:
         """Get the most recent Steam stats snapshot."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row

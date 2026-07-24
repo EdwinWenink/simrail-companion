@@ -1,11 +1,10 @@
 import asyncio
 import logging
-from typing import Optional
-from datetime import datetime
 
 from simrail_api import SimRailClient
 from simrail_steam import SteamClient
 from simrail_tools_api import SimRailToolsClient
+
 from .database import TrackerDatabase
 
 logger = logging.getLogger(__name__)
@@ -27,12 +26,12 @@ class PlayerTracker:
         self.running = False
 
         # Track current state
-        self.current_train_session_id: Optional[str] = None
-        self.current_station_session_id: Optional[str] = None
-        self.start_steam_distance: Optional[int] = None
-        self.start_steam_points: Optional[int] = None
-        self.current_journey_id: Optional[str] = None
-        self.last_next_station: Optional[str] = None  # Track last shown next station
+        self.current_train_session_id: str | None = None
+        self.current_station_session_id: str | None = None
+        self.start_steam_distance: int | None = None
+        self.start_steam_points: int | None = None
+        self.current_journey_id: str | None = None
+        self.last_next_station: str | None = None  # Track last shown next station
         self.recorded_stations: set[str] = (
             set()
         )  # Track which stations we've passed in current session
@@ -614,7 +613,6 @@ class PlayerTracker:
                     action = "Depart"
                 else:
                     stop_indicator = "   "
-                    action = event_type[:7]
 
                 # Format delay with color
                 if abs(delay_min) > 1:
