@@ -494,7 +494,7 @@ Player is offline or not in a train/station."""
         # Get Steam baseline stats for comparison
         latest_steam = self.db.get_latest_steam_stats(self.steam_id)
 
-        stats_text = "📊 LIFETIME STATISTICS\n\n"
+        stats_text = ""
 
         # Steam baseline (if available)
         if latest_steam:
@@ -560,7 +560,7 @@ Player is offline or not in a train/station."""
                 stats["stations_by_name"].items(), key=lambda x: x[1], reverse=True
             )
 
-            dispatcher_text = "📍 TOP DISPATCHER STATIONS\n\n"
+            dispatcher_text = ""
             for i, (station, time_seconds) in enumerate(sorted_stations[:8], 1):
                 time_str = format_duration(time_seconds)
                 # Truncate long station names
