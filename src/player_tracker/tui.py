@@ -309,8 +309,6 @@ class SessionsPanel(VerticalScroll):
 class TrackerDashboard(App):
     """A Textual app for real-time SimRail session tracking."""
 
-    DEFAULT_CLASSES = "textual-light"
-
     CSS = """
     Screen {
         background: $surface;
@@ -400,6 +398,7 @@ class TrackerDashboard(App):
 
     def __init__(self, steam_id: str, db_path: str = "data/player_tracker.db"):
         super().__init__()
+        self.theme = "textual-light"
         self.steam_id = steam_id
         self.db_path = db_path
         self.tracker: PlayerTracker | None = None
