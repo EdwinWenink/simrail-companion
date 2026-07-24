@@ -452,19 +452,20 @@ Player is offline or not in a train/station."""
             steam_points = latest_steam["total_score"]
             stats_text += f"Steam Total: {steam_distance_km:,.1f} km, {steam_points:,} pts\n\n"
 
-        # Tracked stats
-        stats_text += f"Train Sessions: {stats['train_sessions']}\n"
-        stats_text += f"Tracked Distance: {format_distance(stats['total_distance_meters'])}\n"
-        stats_text += f"Tracked Points: {stats['total_points']:,}\n"
-        stats_text += f"Driving Time: {format_duration(stats['total_train_time_seconds'])}\n"
-        stats_text += f"Dispatching: {format_duration(stats['total_dispatcher_time_seconds'])}"
-
-        # Calculate coverage percentage
+        # Calculate coverage percentage first
+        coverage_str = ""
         if latest_steam and latest_steam["total_distance_meters"] > 0:
             coverage = (
                 stats["total_distance_meters"] / latest_steam["total_distance_meters"]
             ) * 100
-            stats_text += f"\n\nCoverage: {coverage:.1f}% tracked"
+            coverage_str = f" ({coverage:.1f}% coverage)"
+
+        # Tracked stats
+        stats_text += f"Train Sessions: {stats['train_sessions']}\n"
+        stats_text += f"Tracked: {format_distance(stats['total_distance_meters'])}{coverage_str}\n"
+        stats_text += f"Points: {stats['total_points']:,}\n"
+        stats_text += f"Driving: {format_duration(stats['total_train_time_seconds'])}\n"
+        stats_text += f"Dispatching: {format_duration(stats['total_dispatcher_time_seconds'])}"
 
         stats_panel.stats_text = stats_text
 
