@@ -1,4 +1,5 @@
 """Pydantic models for vehicle composition data."""
+
 from typing import Optional, Literal
 from pydantic import BaseModel
 
@@ -26,11 +27,12 @@ VehicleLoad = Literal[
     "UNKNOWN",
 ]
 
-VehicleType = Literal["WAGON", "LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT"]  
+VehicleType = Literal["WAGON", "LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT"]
 
 
 class Railcar(BaseModel):
     """Summary information about a railcar (locomotive, emu, or wagon)."""
+
     id: str
     displayName: str
     name: Optional[str] = None
@@ -48,6 +50,7 @@ class Railcar(BaseModel):
 
 class Vehicle(BaseModel):
     """A vehicle in a train composition."""
+
     indexInGroup: int
     loadWeight: Optional[int] = None
     load: Optional[VehicleLoad] = None
@@ -56,6 +59,7 @@ class Vehicle(BaseModel):
 
 class VehicleSequence(BaseModel):
     """Vehicle composition for a journey."""
+
     journeyId: str
     status: str
     lastUpdated: str  # ISO-8601 with offset
@@ -120,20 +124,30 @@ class VehicleSequence(BaseModel):
                 lines.append("🚂 LOCOMOTIVE:")
                 loc = locomotives[0]
                 lines.append(f"   {loc.displayName} ({loc.typeIdentifier})")
-                lines.append(f"   {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h")
+                lines.append(
+                    f"   {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h"
+                )
             else:
-                lines.append(f"🚂🚂 LOCOMOTIVES (Double-Headed, {len(locomotives)} units):")
+                lines.append(
+                    f"🚂🚂 LOCOMOTIVES (Double-Headed, {len(locomotives)} units):"
+                )
                 for i, loc in enumerate(locomotives, 1):
                     lines.append(f"   {i}. {loc.displayName} ({loc.typeIdentifier})")
-                    if i == 1:  # Only show detailed specs for first loc to avoid clutter
-                        lines.append(f"      {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h")
+                    if (
+                        i == 1
+                    ):  # Only show detailed specs for first loc to avoid clutter
+                        lines.append(
+                            f"      {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h"
+                        )
         else:
             lines.append("⚠️  No locomotive found in composition")
 
         lines.append("")
         lines.append("📊 COMPOSITION STATS")
         lines.append(f"   Vehicles: {num_vehicles}")
-        lines.append(f"   Total Weight: {total_railcar_weight:.1f}t (railcars) + {total_load_weight}t (load) = {total_railcar_weight + total_load_weight:.1f}t")
+        lines.append(
+            f"   Total Weight: {total_railcar_weight:.1f}t (railcars) + {total_load_weight}t (load) = {total_railcar_weight + total_load_weight:.1f}t"
+        )
         lines.append(f"   Total Length: {total_length:.2f}m")
 
         return "\n".join(lines)

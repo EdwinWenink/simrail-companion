@@ -2,6 +2,7 @@
 """
 Show delay information for a train.
 """
+
 import asyncio
 import sys
 import argparse
@@ -18,18 +19,10 @@ def format_time(iso_time: str) -> str:
 
 async def main():
     parser = argparse.ArgumentParser(description="Show train delay information")
+    parser.add_argument("server_id", help="Server ID (e.g., 'int1')")
+    parser.add_argument("train_number", help="Train number (e.g., '6162')")
     parser.add_argument(
-        "server_id",
-        help="Server ID (e.g., 'int1')"
-    )
-    parser.add_argument(
-        "train_number",
-        help="Train number (e.g., '6162')"
-    )
-    parser.add_argument(
-        "--all-events",
-        action="store_true",
-        help="Show all events, not just upcoming"
+        "--all-events", action="store_true", help="Show all events, not just upcoming"
     )
 
     args = parser.parse_args()
@@ -37,9 +30,13 @@ async def main():
     tools_client = SimRailToolsClient()
     simrail_client = SimRailClient()
 
-    print(f"Fetching delay information for train {args.train_number} on server {args.server_id}...\n")
+    print(
+        f"Fetching delay information for train {args.train_number} on server {args.server_id}...\n"
+    )
 
-    delay_info = await tools_client.get_current_delay(args.server_id, args.train_number, include_station_name=True)
+    delay_info = await tools_client.get_current_delay(
+        args.server_id, args.train_number, include_station_name=True
+    )
 
     if not delay_info:
         print(f"❌ Could not find train {args.train_number} on server {args.server_id}")
@@ -74,7 +71,7 @@ async def main():
 
         print(f"\nNext Stop:")
         print(f"   Station: {current['station_name']}")
-        dispatcher = station_dispatchers.get(current['station_name'], "🤖 AI")
+        dispatcher = station_dispatchers.get(current["station_name"], "🤖 AI")
         print(f"   Dispatcher: {dispatcher}")
         print(f"   Event: {current['event_type'].title()}")
         print(f"   Scheduled: {format_time(current['scheduled_time'])}")
@@ -83,7 +80,9 @@ async def main():
 
     print(f"\n📅 Upcoming Events:")
     print("-" * 95)
-    print(f"{'Station':<30} {'Disp':<8} {'Type':<10} {'Scheduled':<10} {'Expected':<10} {'Delay':<15}")
+    print(
+        f"{'Station':<30} {'Disp':<8} {'Type':<10} {'Scheduled':<10} {'Expected':<10} {'Delay':<15}"
+    )
     print("-" * 95)
 
     for event in delay_info["upcoming_events"]:
@@ -97,7 +96,11 @@ async def main():
             delay_str = f"{delay_min:.1f} min"
 
         # Truncate long station names
-        station = event["station_name"][:28] + ".." if len(event["station_name"]) > 30 else event["station_name"]
+        station = (
+            event["station_name"][:28] + ".."
+            if len(event["station_name"]) > 30
+            else event["station_name"]
+        )
 
         # Get dispatcher type
         dispatcher = station_dispatchers.get(event["station_name"], "🤖 AI")
@@ -120,7 +123,7 @@ async def main():
 
 if __name__ == "__main__":
     # Configure UTF-8 output for Windows
-    if sys.platform == 'win32':
-        sys.stdout.reconfigure(encoding='utf-8')
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding="utf-8")
 
     asyncio.run(main())

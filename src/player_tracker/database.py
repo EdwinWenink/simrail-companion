@@ -115,13 +115,13 @@ class TrackerDatabase:
             cursor = conn.execute("PRAGMA table_info(train_sessions)")
             columns = [row[1] for row in cursor.fetchall()]
 
-            if 'baseline_distance' not in columns:
+            if "baseline_distance" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN baseline_distance INTEGER
                 """)
                 conn.commit()
 
-            if 'baseline_points' not in columns:
+            if "baseline_points" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN baseline_points INTEGER
                 """)
@@ -132,7 +132,7 @@ class TrackerDatabase:
             columns = [row[1] for row in cursor.fetchall()]
 
             # Rename 'vehicle' to 'vehicle_summary' if needed
-            if 'vehicle' in columns and 'vehicle_summary' not in columns:
+            if "vehicle" in columns and "vehicle_summary" not in columns:
                 # SQLite doesn't support RENAME COLUMN directly in older versions
                 # We'll add new column and copy data
                 conn.execute("""
@@ -143,58 +143,58 @@ class TrackerDatabase:
                 """)
                 conn.commit()
 
-            if 'traction_type' not in columns:
+            if "traction_type" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN traction_type TEXT
                 """)
                 conn.commit()
 
-            if 'locomotive_names' not in columns:
+            if "locomotive_names" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN locomotive_names TEXT
                 """)
                 conn.commit()
 
-            if 'num_locomotives' not in columns:
+            if "num_locomotives" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN num_locomotives INTEGER
                 """)
                 conn.commit()
 
-            if 'num_wagons' not in columns:
+            if "num_wagons" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN num_wagons INTEGER
                 """)
                 conn.commit()
 
-            if 'total_vehicles' not in columns:
+            if "total_vehicles" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN total_vehicles INTEGER
                 """)
                 conn.commit()
 
-            if 'total_length' not in columns:
+            if "total_length" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN total_length REAL
                 """)
                 conn.commit()
 
-            if 'total_weight' not in columns:
+            if "total_weight" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN total_weight REAL
                 """)
                 conn.commit()
 
-            if 'composition_json' not in columns:
+            if "composition_json" not in columns:
                 conn.execute("""
                     ALTER TABLE train_sessions ADD COLUMN composition_json TEXT
                 """)
                 conn.commit()
 
             # Migration: Copy vehicle to vehicle_summary if needed, then drop vehicle column
-            if 'vehicle' in columns:
+            if "vehicle" in columns:
                 # Copy data from vehicle to vehicle_summary if vehicle_summary is empty
-                if 'vehicle_summary' in columns:
+                if "vehicle_summary" in columns:
                     conn.execute("""
                         UPDATE train_sessions
                         SET vehicle_summary = vehicle
@@ -292,20 +292,33 @@ class TrackerDatabase:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    session_id, steam_id, server_code, server_name, train_number,
-                    train_name, start_station, end_station, vehicle_summary, now,
-                    baseline_distance, baseline_points,
-                    traction_type, locomotive_names, num_locomotives, num_wagons,
-                    total_vehicles, total_length, total_weight, composition_json,
+                    session_id,
+                    steam_id,
+                    server_code,
+                    server_name,
+                    train_number,
+                    train_name,
+                    start_station,
+                    end_station,
+                    vehicle_summary,
+                    now,
+                    baseline_distance,
+                    baseline_points,
+                    traction_type,
+                    locomotive_names,
+                    num_locomotives,
+                    num_wagons,
+                    total_vehicles,
+                    total_length,
+                    total_weight,
+                    composition_json,
                 ),
             )
             conn.commit()
 
         return session_id
 
-    def end_train_session(
-        self, session_id: str, distance_meters: int, points: int
-    ):
+    def end_train_session(self, session_id: str, distance_meters: int, points: int):
         now = datetime.utcnow().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
@@ -436,9 +449,7 @@ class TrackerDatabase:
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def get_train_sessions(
-        self, steam_id: str, limit: int = 50
-    ) -> list[dict]:
+    def get_train_sessions(self, steam_id: str, limit: int = 50) -> list[dict]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
@@ -452,9 +463,7 @@ class TrackerDatabase:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_station_sessions(
-        self, steam_id: str, limit: int = 50
-    ) -> list[dict]:
+    def get_station_sessions(self, steam_id: str, limit: int = 50) -> list[dict]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
@@ -588,7 +597,11 @@ class TrackerDatabase:
             }
 
     def save_steam_stats(
-        self, steam_id: str, score: int, distance_meters: int, dispatcher_time_minutes: int
+        self,
+        steam_id: str,
+        score: int,
+        distance_meters: int,
+        dispatcher_time_minutes: int,
     ):
         """Save a snapshot of Steam stats."""
         now = datetime.utcnow().isoformat()

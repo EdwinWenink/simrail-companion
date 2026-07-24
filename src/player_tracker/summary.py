@@ -40,17 +40,31 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
     if latest_steam:
         print("\n🎮 STEAM STATISTICS (Latest)")
         print("-" * 80)
-        print(f"Total Distance:          {latest_steam['total_distance_meters']:,} m ({latest_steam['total_distance_meters'] / 1000:.2f} km)")
+        print(
+            f"Total Distance:          {latest_steam['total_distance_meters']:,} m ({latest_steam['total_distance_meters'] / 1000:.2f} km)"
+        )
         print(f"Total Score:             {latest_steam['total_score']:,}")
-        print(f"Dispatcher Time:         {latest_steam['total_dispatcher_time_minutes']:,} min ({latest_steam['total_dispatcher_time_minutes'] / 60:.2f} hours)")
-        print(f"Last Synced:             {format_datetime(latest_steam['recorded_at'])}")
+        print(
+            f"Dispatcher Time:         {latest_steam['total_dispatcher_time_minutes']:,} min ({latest_steam['total_dispatcher_time_minutes'] / 60:.2f} hours)"
+        )
+        print(
+            f"Last Synced:             {format_datetime(latest_steam['recorded_at'])}"
+        )
 
-        if first_steam and first_steam['id'] != latest_steam['id']:
-            distance_gain = latest_steam['total_distance_meters'] - first_steam['total_distance_meters']
-            score_gain = latest_steam['total_score'] - first_steam['total_score']
-            time_gain = latest_steam['total_dispatcher_time_minutes'] - first_steam['total_dispatcher_time_minutes']
+        if first_steam and first_steam["id"] != latest_steam["id"]:
+            distance_gain = (
+                latest_steam["total_distance_meters"]
+                - first_steam["total_distance_meters"]
+            )
+            score_gain = latest_steam["total_score"] - first_steam["total_score"]
+            time_gain = (
+                latest_steam["total_dispatcher_time_minutes"]
+                - first_steam["total_dispatcher_time_minutes"]
+            )
 
-            print(f"\nGain since first sync ({format_datetime(first_steam['recorded_at'])}):")
+            print(
+                f"\nGain since first sync ({format_datetime(first_steam['recorded_at'])}):"
+            )
             print(f"  Distance: +{distance_gain:,} m ({distance_gain / 1000:.2f} km)")
             print(f"  Score: +{score_gain:,}")
             print(f"  Dispatcher Time: +{time_gain} min ({time_gain / 60:.2f} hours)")
@@ -58,20 +72,34 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
     # ===== OVERALL STATISTICS =====
     print("\n📊 TRACKED SESSION STATISTICS")
     print("-" * 80)
-    print(f"Total Distance Traveled: {stats['total_distance_meters']:,} m ({stats['total_distance_meters'] / 1000:.2f} km)")
+    print(
+        f"Total Distance Traveled: {stats['total_distance_meters']:,} m ({stats['total_distance_meters'] / 1000:.2f} km)"
+    )
     print(f"Total Points Earned:     {stats['total_points']:,}")
-    print(f"Total Train Time:        {format_duration(stats['total_train_time_seconds'])} ({stats['total_train_time_seconds'] / 3600:.2f} hours)")
-    print(f"Total Dispatcher Time:   {format_duration(stats['total_dispatcher_time_seconds'])} ({stats['total_dispatcher_time_seconds'] / 3600:.2f} hours)")
+    print(
+        f"Total Train Time:        {format_duration(stats['total_train_time_seconds'])} ({stats['total_train_time_seconds'] / 3600:.2f} hours)"
+    )
+    print(
+        f"Total Dispatcher Time:   {format_duration(stats['total_dispatcher_time_seconds'])} ({stats['total_dispatcher_time_seconds'] / 3600:.2f} hours)"
+    )
     print(f"Train Sessions:          {stats['train_sessions']}")
     print(f"Station Sessions:        {stats['station_sessions']}")
 
     # Compare with Steam stats if available
     if latest_steam:
-        coverage = (stats['total_distance_meters'] / latest_steam['total_distance_meters'] * 100) if latest_steam['total_distance_meters'] > 0 else 0
+        coverage = (
+            (
+                stats["total_distance_meters"]
+                / latest_steam["total_distance_meters"]
+                * 100
+            )
+            if latest_steam["total_distance_meters"] > 0
+            else 0
+        )
         print(f"\nTracking Coverage:       {coverage:.1f}% of Steam distance tracked")
 
     # ===== TRAINS BY TYPE =====
-    if stats['trains_by_type']:
+    if stats["trains_by_type"]:
         print("\n🚂 STATISTICS BY TRAIN TYPE")
         print("-" * 80)
         print(f"{'Train/Vehicle':<40} {'Distance':<15} {'Points':<12} {'Time':<12}")
@@ -79,20 +107,22 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
 
         # Sort by distance
         sorted_trains = sorted(
-            stats['trains_by_type'].items(),
-            key=lambda x: x[1]['distance'],
-            reverse=True
+            stats["trains_by_type"].items(),
+            key=lambda x: x[1]["distance"],
+            reverse=True,
         )
 
         for vehicle, data in sorted_trains:
-            distance_km = data['distance'] / 1000
-            time_str = format_duration(data['time'])
+            distance_km = data["distance"] / 1000
+            time_str = format_duration(data["time"])
             # Truncate long vehicle names
-            vehicle_display = vehicle[:38] + '..' if len(vehicle) > 40 else vehicle
-            print(f"{vehicle_display:<40} {distance_km:>10,.2f} km {data['points']:>10,} {time_str:>12}")
+            vehicle_display = vehicle[:38] + ".." if len(vehicle) > 40 else vehicle
+            print(
+                f"{vehicle_display:<40} {distance_km:>10,.2f} km {data['points']:>10,} {time_str:>12}"
+            )
 
     # ===== STATIONS BY TIME =====
-    if stats['stations_by_name']:
+    if stats["stations_by_name"]:
         print("\n📍 DISPATCHER TIME BY STATION (Top 15)")
         print("-" * 80)
         print(f"{'Station Name':<40} {'Time':<15} {'Sessions':<10}")
@@ -102,26 +132,26 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
         all_station_sessions = db.get_station_sessions(steam_id, limit=10000)
         station_session_counts = {}
         for session in all_station_sessions:
-            if session['left_at']:
-                station = session['station_name']
-                station_session_counts[station] = station_session_counts.get(station, 0) + 1
+            if session["left_at"]:
+                station = session["station_name"]
+                station_session_counts[station] = (
+                    station_session_counts.get(station, 0) + 1
+                )
 
         # Sort by time
         sorted_stations = sorted(
-            stats['stations_by_name'].items(),
-            key=lambda x: x[1],
-            reverse=True
+            stats["stations_by_name"].items(), key=lambda x: x[1], reverse=True
         )
 
         for station, time_seconds in sorted_stations[:15]:
             time_str = format_duration(time_seconds)
             session_count = station_session_counts.get(station, 0)
             # Truncate long station names
-            station_display = station[:38] + '..' if len(station) > 40 else station
+            station_display = station[:38] + ".." if len(station) > 40 else station
             print(f"{station_display:<40} {time_str:<15} {session_count:<10}")
 
     # ===== STATIONS PASSED DURING TRAIN SESSIONS =====
-    if stats.get('station_passages'):
+    if stats.get("station_passages"):
         print("\n🚉 STATIONS PASSED WHILE DRIVING TRAINS (Top 20)")
         print("-" * 80)
         print(f"{'Station Name':<40} {'Total':<8} {'Pax':<8} {'Tech':<8} {'Pass':<8}")
@@ -129,15 +159,15 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
 
         # Sort by total passages
         sorted_passages = sorted(
-            stats['station_passages'].items(),
-            key=lambda x: x[1]['total'],
-            reverse=True
+            stats["station_passages"].items(), key=lambda x: x[1]["total"], reverse=True
         )
 
         for station, data in sorted_passages[:20]:
-            station_display = station[:38] + '..' if len(station) > 40 else station
-            print(f"{station_display:<40} {data['total']:<8} {data['passenger_stops']:<8} "
-                  f"{data['technical_stops']:<8} {data['pass_through']:<8}")
+            station_display = station[:38] + ".." if len(station) > 40 else station
+            print(
+                f"{station_display:<40} {data['total']:<8} {data['passenger_stops']:<8} "
+                f"{data['technical_stops']:<8} {data['pass_through']:<8}"
+            )
 
     # ===== RECENT TRAIN SESSIONS =====
     print(f"\n🚂 RECENT TRAIN SESSIONS (Last {session_limit})")
@@ -149,33 +179,37 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
         print("No train sessions recorded yet.")
     else:
         for session in recent_trains:
-            status = "✅" if session['left_at'] else "🔄"
+            status = "✅" if session["left_at"] else "🔄"
 
             # Calculate duration
-            if session['left_at']:
-                start = datetime.fromisoformat(session['joined_at'])
-                end = datetime.fromisoformat(session['left_at'])
+            if session["left_at"]:
+                start = datetime.fromisoformat(session["joined_at"])
+                end = datetime.fromisoformat(session["left_at"])
                 duration = format_duration((end - start).total_seconds())
             else:
                 duration = "In Progress"
 
             # Format vehicle information with composition data
-            vehicle_info = session.get('vehicle_summary', 'Unknown')
-            if session.get('total_weight'):
+            vehicle_info = session.get("vehicle_summary", "Unknown")
+            if session.get("total_weight"):
                 vehicle_info += f" ({session['total_weight']:.0f}t)"
-            if session.get('total_length'):
+            if session.get("total_length"):
                 vehicle_info += f" • {session['total_length']:.0f}m"
 
-            print(f"\n{status} Train {session['train_number']} ({session['train_name']}) - {vehicle_info[:60]}")
+            print(
+                f"\n{status} Train {session['train_number']} ({session['train_name']}) - {vehicle_info[:60]}"
+            )
             print(f"   Route: {session['start_station']} → {session['end_station']}")
             print(f"   Server: {session['server_name']} ({session['server_code']})")
             print(f"   Started: {format_datetime(session['joined_at'])}")
 
-            if session['left_at']:
+            if session["left_at"]:
                 print(f"   Ended: {format_datetime(session['left_at'])}")
                 print(f"   Duration: {duration}")
-                if session['distance_meters']:
-                    print(f"   Distance: {session['distance_meters']:,} m ({session['distance_meters'] / 1000:.2f} km)")
+                if session["distance_meters"]:
+                    print(
+                        f"   Distance: {session['distance_meters']:,} m ({session['distance_meters'] / 1000:.2f} km)"
+                    )
                     print(f"   Points: {session['points']:,}")
 
     # ===== RECENT STATION SESSIONS =====
@@ -188,12 +222,12 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
         print("No station sessions recorded yet.")
     else:
         for session in recent_stations:
-            status = "✅" if session['left_at'] else "🔄"
+            status = "✅" if session["left_at"] else "🔄"
 
             # Calculate duration
-            if session['left_at']:
-                start = datetime.fromisoformat(session['joined_at'])
-                end = datetime.fromisoformat(session['left_at'])
+            if session["left_at"]:
+                start = datetime.fromisoformat(session["joined_at"])
+                end = datetime.fromisoformat(session["left_at"])
                 duration = format_duration((end - start).total_seconds())
             else:
                 duration = "In Progress"
@@ -202,7 +236,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
             print(f"   Server: {session['server_name']} ({session['server_code']})")
             print(f"   Started: {format_datetime(session['joined_at'])}")
 
-            if session['left_at']:
+            if session["left_at"]:
                 print(f"   Ended: {format_datetime(session['left_at'])}")
                 print(f"   Duration: {duration}")
 
@@ -214,23 +248,19 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
     all_sessions = []
 
     for session in recent_trains[:5]:
-        all_sessions.append({
-            'type': 'train',
-            'time': session['joined_at'],
-            'data': session
-        })
+        all_sessions.append(
+            {"type": "train", "time": session["joined_at"], "data": session}
+        )
 
     for session in recent_stations[:5]:
-        all_sessions.append({
-            'type': 'station',
-            'time': session['joined_at'],
-            'data': session
-        })
+        all_sessions.append(
+            {"type": "station", "time": session["joined_at"], "data": session}
+        )
 
-    all_sessions.sort(key=lambda x: x['time'], reverse=True)
+    all_sessions.sort(key=lambda x: x["time"], reverse=True)
 
     for item in all_sessions[:10]:
-        dt = datetime.fromisoformat(item['time'])
+        dt = datetime.fromisoformat(item["time"])
         time_ago = datetime.now() - dt
 
         if time_ago < timedelta(hours=1):
@@ -240,14 +270,16 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
         else:
             time_ago_str = f"{int(time_ago.total_seconds() / 86400)} days ago"
 
-        if item['type'] == 'train':
-            session = item['data']
-            status = "✅" if session['left_at'] else "🔄 Active"
+        if item["type"] == "train":
+            session = item["data"]
+            status = "✅" if session["left_at"] else "🔄 Active"
             print(f"{format_datetime(item['time'])} ({time_ago_str})")
-            print(f"  🚂 {status} Train {session['train_number']} - {session['start_station']} → {session['end_station']}")
+            print(
+                f"  🚂 {status} Train {session['train_number']} - {session['start_station']} → {session['end_station']}"
+            )
         else:
-            session = item['data']
-            status = "✅" if session['left_at'] else "🔄 Active"
+            session = item["data"]
+            status = "✅" if session["left_at"] else "🔄 Active"
             print(f"{format_datetime(item['time'])} ({time_ago_str})")
             print(f"  📍 {status} Station {session['station_name']}")
 
@@ -268,29 +300,39 @@ def print_active_sessions(db: TrackerDatabase, steam_id: str):
     print("-" * 80)
 
     if active_train:
-        start = datetime.fromisoformat(active_train['joined_at'])
+        start = datetime.fromisoformat(active_train["joined_at"])
         duration = datetime.now() - start
 
         # Format vehicle information with composition data
-        vehicle_info = active_train.get('vehicle_summary', 'Unknown')
-        if active_train.get('total_weight'):
+        vehicle_info = active_train.get("vehicle_summary", "Unknown")
+        if active_train.get("total_weight"):
             vehicle_info += f" ({active_train['total_weight']:.0f}t)"
-        if active_train.get('total_length'):
+        if active_train.get("total_length"):
             vehicle_info += f" • {active_train['total_length']:.0f}m"
 
-        print(f"\n🚂 Driving Train {active_train['train_number']} ({active_train['train_name']})")
+        print(
+            f"\n🚂 Driving Train {active_train['train_number']} ({active_train['train_name']})"
+        )
         print(f"   Vehicle: {vehicle_info}")
-        print(f"   Route: {active_train['start_station']} → {active_train['end_station']}")
-        print(f"   Server: {active_train['server_name']} ({active_train['server_code']})")
+        print(
+            f"   Route: {active_train['start_station']} → {active_train['end_station']}"
+        )
+        print(
+            f"   Server: {active_train['server_name']} ({active_train['server_code']})"
+        )
         print(f"   Started: {format_datetime(active_train['joined_at'])}")
         print(f"   Duration: {format_duration(duration.total_seconds())}")
 
     if active_station:
-        start = datetime.fromisoformat(active_station['joined_at'])
+        start = datetime.fromisoformat(active_station["joined_at"])
         duration = datetime.now() - start
 
-        print(f"\n📍 Dispatching at {active_station['station_name']} ({active_station['station_prefix']})")
-        print(f"   Server: {active_station['server_name']} ({active_station['server_code']})")
+        print(
+            f"\n📍 Dispatching at {active_station['station_name']} ({active_station['station_prefix']})"
+        )
+        print(
+            f"   Server: {active_station['server_name']} ({active_station['server_code']})"
+        )
         print(f"   Started: {format_datetime(active_station['joined_at'])}")
         print(f"   Duration: {format_duration(duration.total_seconds())}")
 

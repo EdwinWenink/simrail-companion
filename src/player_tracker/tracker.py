@@ -33,7 +33,9 @@ class PlayerTracker:
         self.start_steam_points: Optional[int] = None
         self.current_journey_id: Optional[str] = None
         self.last_next_station: Optional[str] = None  # Track last shown next station
-        self.recorded_stations: set[str] = set()  # Track which stations we've passed in current session
+        self.recorded_stations: set[str] = (
+            set()
+        )  # Track which stations we've passed in current session
 
     async def start(self):
         """Start tracking the player continuously."""
@@ -82,12 +84,19 @@ class PlayerTracker:
             return
 
         if activity["activity_type"] == "train":
-            logger.debug("Player on train %s (%s) on server %s",
-                        activity['train_number'], activity['train_name'], activity['server_code'])
+            logger.debug(
+                "Player on train %s (%s) on server %s",
+                activity["train_number"],
+                activity["train_name"],
+                activity["server_code"],
+            )
             await self._handle_train_activity(activity)
         else:
-            logger.debug("Player at station %s on server %s",
-                        activity['station_name'], activity['server_code'])
+            logger.debug(
+                "Player at station %s on server %s",
+                activity["station_name"],
+                activity["server_code"],
+            )
             await self._handle_station_activity(activity)
 
     async def _handle_train_activity(self, activity: dict):
@@ -101,25 +110,33 @@ class PlayerTracker:
         # Check if this is a new train session
         active_session = self.db.get_active_train_session(self.steam_id)
 
-        if active_session and active_session["train_number"] == activity["train_number"]:
+        if (
+            active_session
+            and active_session["train_number"] == activity["train_number"]
+        ):
             # Same train - check if we're actively tracking it
             if self.current_train_session_id == active_session["id"]:
                 # We're already tracking this session
-                logger.debug("Player still on train %s", activity['train_number'])
+                logger.debug("Player still on train %s", activity["train_number"])
                 await self._check_delay_status(activity)
                 return
 
             # Stale open session from interrupted tracker run
             # Close it with current stats (best effort) and start fresh
-            logger.info("Found interrupted session for train %s - closing with current stats",
-                       activity['train_number'])
+            logger.info(
+                "Found interrupted session for train %s - closing with current stats",
+                activity["train_number"],
+            )
             await self._end_train_session(active_session["id"], is_interrupted=False)
             # Fall through to start new session
 
         # End old train session if exists (different train)
         elif active_session:
-            logger.info("Player switched trains: %s -> %s",
-                       active_session['train_number'], activity['train_number'])
+            logger.info(
+                "Player switched trains: %s -> %s",
+                active_session["train_number"],
+                activity["train_number"],
+            )
             await self._end_train_session(active_session["id"])
 
         # Start new train session
@@ -138,15 +155,21 @@ class PlayerTracker:
         # Check if this is a new station session
         active_session = self.db.get_active_station_session(self.steam_id)
 
-        if active_session and active_session["station_name"] == activity["station_name"]:
+        if (
+            active_session
+            and active_session["station_name"] == activity["station_name"]
+        ):
             # Same station, still active
-            logger.debug("Player still at station %s", activity['station_name'])
+            logger.debug("Player still at station %s", activity["station_name"])
             return
 
         # End old station session if exists
         if active_session:
-            logger.info("Player switched stations: %s -> %s",
-                       active_session['station_name'], activity['station_name'])
+            logger.info(
+                "Player switched stations: %s -> %s",
+                active_session["station_name"],
+                activity["station_name"],
+            )
             self.db.end_station_session(active_session["id"])
 
         # Start new station session
@@ -181,13 +204,18 @@ class PlayerTracker:
         if steam_stats:
             self.start_steam_distance = steam_stats["DISTANCE_M"]
             self.start_steam_points = steam_stats["SCORE"]
-            logger.info("📊 Baseline captured: %s m, %s points, %s min dispatcher",
-                       self.start_steam_distance, self.start_steam_points,
-                       steam_stats.get("DISPATCHER_TIME", 0))
+            logger.info(
+                "📊 Baseline captured: %s m, %s points, %s min dispatcher",
+                self.start_steam_distance,
+                self.start_steam_points,
+                steam_stats.get("DISPATCHER_TIME", 0),
+            )
         else:
             self.start_steam_distance = None
             self.start_steam_points = None
-            logger.warning("⚠️  Could not fetch Steam stats for baseline - stats may be private or Steam API unavailable")
+            logger.warning(
+                "⚠️  Could not fetch Steam stats for baseline - stats may be private or Steam API unavailable"
+            )
 
         # Get vehicle name (first vehicle in the list) as fallback
         vehicle = activity["vehicles"][0] if activity["vehicles"] else "Unknown"
@@ -195,7 +223,7 @@ class PlayerTracker:
         # Fetch journey ID first (needed for composition)
         journey_id = None
         try:
-            logger.debug("Looking up journey ID for train %s", activity['train_number'])
+            logger.debug("Looking up journey ID for train %s", activity["train_number"])
             journey_id = await self.simrail_tools_client.find_journey_by_train_number(
                 activity["server_code"], activity["train_number"]
             )
@@ -210,7 +238,9 @@ class PlayerTracker:
         if journey_id:
             try:
                 logger.debug("Fetching vehicle composition...")
-                vehicles = await self.simrail_tools_client.get_vehicle_composition(journey_id)
+                vehicles = await self.simrail_tools_client.get_vehicle_composition(
+                    journey_id
+                )
 
                 if vehicles:
                     # Determine traction type
@@ -234,10 +264,11 @@ class PlayerTracker:
                             for loc in vehicles.locomotives
                         ],
                         "emus": [
-                             {
-                                 "displayName": emu.displayName,
-                                 "typeIdentifier": emu.typeIdentifier,
-                             } for emu in vehicles.emus
+                            {
+                                "displayName": emu.displayName,
+                                "typeIdentifier": emu.typeIdentifier,
+                            }
+                            for emu in vehicles.emus
                         ],
                         "vehicles": [
                             {
@@ -260,11 +291,19 @@ class PlayerTracker:
                         ],
                         "num_wagons": num_wagons,
                         "total_vehicles": len(vehicles.vehicles),
-                        "total_length": sum(v.railcar.length for v in vehicles.vehicles),
-                        "total_weight": sum(v.railcar.weight + (v.loadWeight or 0) for v in vehicles.vehicles),
+                        "total_length": sum(
+                            v.railcar.length for v in vehicles.vehicles
+                        ),
+                        "total_weight": sum(
+                            v.railcar.weight + (v.loadWeight or 0)
+                            for v in vehicles.vehicles
+                        ),
                     }
-                    logger.debug("✓ Vehicle composition captured: %s locs, %s wagons",
-                                len(vehicles.locomotives), num_wagons)
+                    logger.debug(
+                        "✓ Vehicle composition captured: %s locs, %s wagons",
+                        len(vehicles.locomotives),
+                        num_wagons,
+                    )
             except Exception as e:
                 logger.debug("Could not fetch vehicle composition: %s", e)
 
@@ -290,7 +329,9 @@ class PlayerTracker:
             if len(locs) == 1:
                 vehicle_info = locs[0]["displayName"]
             else:
-                vehicle_info = f"{', '.join(loc['displayName'] for loc in locs)} (double-headed)"
+                vehicle_info = (
+                    f"{', '.join(loc['displayName'] for loc in locs)} (double-headed)"
+                )
             if composition.get("num_wagons"):
                 vehicle_info += f" + {composition['num_wagons']} wagons"
         else:
@@ -325,11 +366,18 @@ class PlayerTracker:
             # Try to get baseline from database (for stale sessions)
             # Use efficient lookup by ID instead of fetching all sessions
             session = self.db.get_train_session_by_id(session_id)
-            if session and session.get('baseline_distance') and session.get('baseline_points'):
-                baseline_distance = session['baseline_distance']
-                baseline_points = session['baseline_points']
-                logger.debug("Using baseline stats from database: %sm, %s points",
-                            baseline_distance, baseline_points)
+            if (
+                session
+                and session.get("baseline_distance")
+                and session.get("baseline_points")
+            ):
+                baseline_distance = session["baseline_distance"]
+                baseline_points = session["baseline_points"]
+                logger.debug(
+                    "Using baseline stats from database: %sm, %s points",
+                    baseline_distance,
+                    baseline_points,
+                )
 
         if not baseline_distance or not baseline_points:
             # No starting stats, can't calculate difference
@@ -360,7 +408,12 @@ class PlayerTracker:
                     break
             except Exception as e:
                 if attempt < max_retries - 1:
-                    logger.debug("Steam API attempt %s/%s failed: %s", attempt + 1, max_retries, e)
+                    logger.debug(
+                        "Steam API attempt %s/%s failed: %s",
+                        attempt + 1,
+                        max_retries,
+                        e,
+                    )
                     await asyncio.sleep(0.5)  # Brief delay before retry
                 else:
                     logger.debug("All Steam API attempts failed")
@@ -391,14 +444,22 @@ class PlayerTracker:
         distance = max(0, current_distance - baseline_distance)
         points = max(0, current_points - baseline_points)
 
-        logger.debug("Stats calculation: current=%sm/%spts - baseline=%sm/%spts = session=%sm/%spts",
-                    current_distance, current_points, baseline_distance, baseline_points,
-                    distance, points)
+        logger.info(
+            "Stats calculation: current=%sm/%spts - baseline=%sm/%spts = session=%sm/%spts",
+            current_distance,
+            current_points,
+            baseline_distance,
+            baseline_points,
+            distance,
+            points,
+        )
 
         self.db.end_train_session(session_id, distance, points)
         logger.info(
             "✅ Completed train session: %s m (%s km), %s points",
-            f"{distance:,}", f"{distance/1000:.2f}", f"{points:,}"
+            f"{distance:,}",
+            f"{distance / 1000:.2f}",
+            f"{points:,}",
         )
 
         self._clear_session_state_if_current(session_id)
@@ -411,7 +472,9 @@ class PlayerTracker:
         """
         if self.current_train_session_id:
             logger.info("Ending active train session")
-            await self._end_train_session(self.current_train_session_id, is_interrupted=is_interrupted)
+            await self._end_train_session(
+                self.current_train_session_id, is_interrupted=is_interrupted
+            )
 
         if self.current_station_session_id:
             self.db.end_station_session(self.current_station_session_id)
@@ -438,9 +501,13 @@ class PlayerTracker:
 
             # If we don't have the journey ID cached, find it
             if not journey_id:
-                logger.info("Looking up timetable for train %s...", activity['train_number'])
-                journey_id = await self.simrail_tools_client.find_journey_by_train_number(
-                    server_code, activity["train_number"]
+                logger.info(
+                    "Looking up timetable for train %s...", activity["train_number"]
+                )
+                journey_id = (
+                    await self.simrail_tools_client.find_journey_by_train_number(
+                        server_code, activity["train_number"]
+                    )
                 )
                 if journey_id:
                     self.current_journey_id = journey_id
@@ -452,31 +519,42 @@ class PlayerTracker:
                     logger.info(
                         "⚠️  No timetable data available for train %s "
                         "(may be a bot train or timetable not yet available)",
-                        activity['train_number']
+                        activity["train_number"],
                     )
                     return
 
             # Get ALL delays (including past) in one API call
-            all_delays = await self.simrail_tools_client.get_journey_delays(journey_id, upcoming_only=False)
+            all_delays = await self.simrail_tools_client.get_journey_delays(
+                journey_id, upcoming_only=False
+            )
 
             # Record any past stations we haven't recorded yet
             if self.current_train_session_id and all_delays:
                 for delay in all_delays:
                     # Only record stations we've actually passed (time_type == "REAL")
-                    if delay.time_type == "REAL" and delay.station_name not in self.recorded_stations:
+                    if (
+                        delay.time_type == "REAL"
+                        and delay.station_name not in self.recorded_stations
+                    ):
                         self.db.record_train_station_passage(
                             self.current_train_session_id,
                             delay.station_name,
-                            delay.stop_type
+                            delay.stop_type,
                         )
                         self.recorded_stations.add(delay.station_name)
-                        logger.debug("Recorded passage: %s (%s)", delay.station_name, delay.stop_type)
+                        logger.debug(
+                            "Recorded passage: %s (%s)",
+                            delay.station_name,
+                            delay.stop_type,
+                        )
 
             # Filter for upcoming delays in Python (avoid second API call)
             delays = [d for d in all_delays if d.time_type != "REAL"]
 
             if not delays:
-                logger.info("⚠️  No upcoming stations in timetable (journey may have ended)")
+                logger.info(
+                    "⚠️  No upcoming stations in timetable (journey may have ended)"
+                )
                 return
 
             # Check if next station changed since last poll
@@ -491,9 +569,13 @@ class PlayerTracker:
 
             # Show next 3-5 stations with their info
             upcoming_count = min(5, len(delays))
-            logger.info("\n%s", '─' * 80)
-            logger.info("🚂 UPCOMING STATION EVENTS (next %s of %s):", upcoming_count, len(delays))
-            logger.info("%s", '─' * 80)
+            logger.info("\n%s", "─" * 80)
+            logger.info(
+                "🚂 UPCOMING STATION EVENTS (next %s of %s):",
+                upcoming_count,
+                len(delays),
+            )
+            logger.info("%s", "─" * 80)
 
             for i, delay in enumerate(delays[:upcoming_count], 1):
                 station_name = delay.station_name
@@ -503,8 +585,12 @@ class PlayerTracker:
                 time_type = delay.time_type
 
                 # Debug: log the values to understand what we're getting
-                logger.debug("Station: %s, event_type: %s, stop_type: %s",
-                            station_name, event_type, stop_type)
+                logger.debug(
+                    "Station: %s, event_type: %s, stop_type: %s",
+                    station_name,
+                    event_type,
+                    stop_type,
+                )
 
                 # Format datetime objects to HH:MM (server local time)
                 try:
@@ -555,7 +641,9 @@ class PlayerTracker:
                 # Check dispatcher only for next stop
                 dispatcher_info = ""
                 if i == 1 and event_type.lower() != "pass":
-                    dispatcher_info = await self._check_dispatcher(server_code, station_name)
+                    dispatcher_info = await self._check_dispatcher(
+                        server_code, station_name
+                    )
                     if dispatcher_info:
                         dispatcher_info = f" {dispatcher_info}"
 
@@ -567,11 +655,12 @@ class PlayerTracker:
                     f"{time_indicator}{dispatcher_info}"
                 )
 
-            logger.info("%s\n", '─' * 80)
+            logger.info("%s\n", "─" * 80)
 
         except Exception as e:
             logger.error("Error fetching delay info: %s - %s", type(e).__name__, e)
             import traceback
+
             logger.debug(traceback.format_exc())
 
     async def _check_dispatcher(self, server_code: str, station_name: str) -> str:
@@ -596,12 +685,14 @@ class PlayerTracker:
         """Fetch and display vehicle composition for a journey."""
         try:
             logger.info("🚂 Fetching vehicle composition...")
-            vehicles = await self.simrail_tools_client.get_vehicle_composition(journey_id)
+            vehicles = await self.simrail_tools_client.get_vehicle_composition(
+                journey_id
+            )
 
             if vehicles:
                 logger.info("\n%s", "─" * 80)
                 # Split the string representation into lines and log each separately
-                for line in str(vehicles).split('\n'):
+                for line in str(vehicles).split("\n"):
                     logger.info("%s", line)
                 logger.info("%s\n", "─" * 80)
             else:

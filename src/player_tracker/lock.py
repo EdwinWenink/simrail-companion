@@ -1,4 +1,5 @@
 """Single-instance lock to prevent multiple trackers running simultaneously."""
+
 import os
 import sys
 import logging
@@ -19,7 +20,7 @@ class TrackerLock:
         if self.lock_file.exists():
             # Check if the PID in the lock file is still running
             try:
-                with open(self.lock_file, 'r') as f:
+                with open(self.lock_file, "r") as f:
                     old_pid = int(f.read().strip())
 
                 # Check if process is still running
@@ -29,7 +30,9 @@ class TrackerLock:
                         f"If this is incorrect, delete: {self.lock_file}"
                     )
                 else:
-                    logger.info("Found stale lock file (process not running), removing it")
+                    logger.info(
+                        "Found stale lock file (process not running), removing it"
+                    )
                     self.lock_file.unlink()
             except (ValueError, FileNotFoundError):
                 # Corrupt or missing lock file, remove it
@@ -37,7 +40,7 @@ class TrackerLock:
 
         # Write our PID to the lock file
         self.lock_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.lock_file, 'w') as f:
+        with open(self.lock_file, "w") as f:
             f.write(str(os.getpid()))
 
         self.acquired = True
@@ -55,12 +58,11 @@ class TrackerLock:
         try:
             # On Unix, sending signal 0 checks if process exists
             # On Windows, we need to use tasklist or psutil
-            if sys.platform == 'win32':
+            if sys.platform == "win32":
                 import subprocess
+
                 result = subprocess.run(
-                    ['tasklist', '/FI', f'PID eq {pid}'],
-                    capture_output=True,
-                    text=True
+                    ["tasklist", "/FI", f"PID eq {pid}"], capture_output=True, text=True
                 )
                 return str(pid) in result.stdout
             else:

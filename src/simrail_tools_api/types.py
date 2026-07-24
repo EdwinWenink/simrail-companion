@@ -40,12 +40,14 @@ class JourneyStopPlace(BaseModel):
 
 class JourneyStopInfo(BaseModel):
     """Information about a passenger stop (platform and track)."""
+
     platform: int
     track: int
 
 
 class GeoPosition(BaseModel):
     """Geographic position with latitude and longitude."""
+
     latitude: float
     longitude: float
 

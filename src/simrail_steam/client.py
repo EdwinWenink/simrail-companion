@@ -17,7 +17,9 @@ class SteamClient:
     BASE_URL = "https://api.steampowered.com"
     DEFAULT_TIMEOUT = 10
 
-    def __init__(self, api_keys: Optional[list[str]] = None, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(
+        self, api_keys: Optional[list[str]] = None, timeout: int = DEFAULT_TIMEOUT
+    ):
         if api_keys is None:
             api_keys = self._load_api_keys_from_env()
 
@@ -51,11 +53,7 @@ class SteamClient:
     def _get_random_key(self) -> str:
         return random.choice(self.api_keys)
 
-    async def _fetch_with_retry(
-        self,
-        url: str,
-        max_retries: int = 3
-    ) -> dict:
+    async def _fetch_with_retry(self, url: str, max_retries: int = 3) -> dict:
         retries = 0
 
         while retries < max_retries:
@@ -70,7 +68,9 @@ class SteamClient:
                         return await response.json()
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 retries += 1
-                logger.warning("Steam request failed: %s, retry %s/%s", e, retries, max_retries)
+                logger.warning(
+                    "Steam request failed: %s, retry %s/%s", e, retries, max_retries
+                )
 
                 if retries < max_retries:
                     await asyncio.sleep(retries)
@@ -130,7 +130,10 @@ class SteamClient:
 
         # If stats are missing (not just zero), return None
         if score is None or distance is None or dispatcher_time is None:
-            logger.warning("Steam API returned incomplete stats for %s (stats may be private)", steam_id)
+            logger.warning(
+                "Steam API returned incomplete stats for %s (stats may be private)",
+                steam_id,
+            )
             return None
 
         return SimRailStats(

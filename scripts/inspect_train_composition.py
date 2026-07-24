@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Example script demonstrating vehicle composition retrieval."""
+
 import asyncio
 import sys
 from simrail_tools_api import SimRailToolsClient
 
 # Configure UTF-8 output for Windows console
-if sys.platform == 'win32':
-    sys.stdout.reconfigure(encoding='utf-8')
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 
 async def main():
@@ -23,7 +24,9 @@ async def main():
     try:
         # Step 1: Find the journey by train number
         print(f"🔍 Looking up train {train_number} on {server_code}...")
-        journey_id = await client.find_journey_by_train_number(server_code, train_number)
+        journey_id = await client.find_journey_by_train_number(
+            server_code, train_number
+        )
 
         if not journey_id:
             print(f"❌ Train {train_number} not found on {server_code}")
@@ -60,14 +63,18 @@ async def main():
             load_info = vehicle.load or "-"
             weight_info = f"{vehicle.loadWeight}t" if vehicle.loadWeight else "-"
 
-            print(f"{index:<4} {railcar.displayName:<35} {railcar.type:<20} {load_info:<20} {weight_info:<10}")
+            print(
+                f"{index:<4} {railcar.displayName:<35} {railcar.type:<20} {load_info:<20} {weight_info:<10}"
+            )
 
         print("=" * 100)
 
         # Step 5: Show locomotive details (supports double-headed)
         if vehicles.locomotives:
             if vehicles.is_double_headed:
-                print(f"\n🚂🚂 Double-Headed Configuration ({len(vehicles.locomotives)} locomotives)")
+                print(
+                    f"\n🚂🚂 Double-Headed Configuration ({len(vehicles.locomotives)} locomotives)"
+                )
                 print("=" * 80)
                 for i, loco in enumerate(vehicles.locomotives, 1):
                     print(f"\nLocomotive #{i}:")

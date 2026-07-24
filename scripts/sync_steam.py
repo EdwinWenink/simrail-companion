@@ -2,6 +2,7 @@
 """
 Sync Steam stats to the local database without starting the tracker.
 """
+
 import asyncio
 import argparse
 from dotenv import load_dotenv
@@ -10,14 +11,11 @@ from player_tracker import PlayerTracker
 
 async def main():
     parser = argparse.ArgumentParser(description="Sync Steam stats to local database")
-    parser.add_argument(
-        "steam_id",
-        help="Steam ID to sync stats for"
-    )
+    parser.add_argument("steam_id", help="Steam ID to sync stats for")
     parser.add_argument(
         "--db",
         default="data/player_tracker.db",
-        help="Path to database file (default: data/player_tracker.db)"
+        help="Path to database file (default: data/player_tracker.db)",
     )
 
     args = parser.parse_args()
