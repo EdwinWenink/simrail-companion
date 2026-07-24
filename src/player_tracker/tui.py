@@ -200,7 +200,7 @@ class PassedStationsPanel(VerticalScroll):
     def update_stations(self, stations: list[dict[str, Any]]) -> None:
         """Update the stations table."""
         self.stations_table.clear()
-        for station in stations[-10:]:  # Show last 10 stations
+        for station in stations[:10]:  # Show first 10 (already ordered DESC by query)
             self.stations_table.add_row(
                 station["station_name"],
                 station["stop_type"],
