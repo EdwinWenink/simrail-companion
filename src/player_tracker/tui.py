@@ -230,12 +230,12 @@ class TrackerDashboard(App):
     }
 
     #left-column {
-        width: 40%;
+        width: 35%;
         height: 100%;
     }
 
     #middle-column {
-        width: 35%;
+        width: 40%;
         height: 100%;
     }
 
@@ -256,13 +256,28 @@ class TrackerDashboard(App):
         background: $boost;
     }
 
+    #composition-panel {
+        height: auto;
+        background: $panel;
+    }
+
+    #upcoming-stations-panel {
+        height: 40%;
+        background: $panel;
+    }
+
+    #passed-stations-panel {
+        height: auto;
+        background: $panel;
+    }
+
     #stats-panel {
         height: 14;
         background: $panel;
     }
 
-    #composition-panel {
-        height: auto;
+    #top-trains-panel {
+        height: 30%;
         background: $panel;
     }
 
@@ -271,23 +286,8 @@ class TrackerDashboard(App):
         background: $panel;
     }
 
-    #upcoming-stations-panel {
-        height: 50%;
-        background: $panel;
-    }
-
-    #passed-stations-panel {
-        height: 15%;
-        background: $panel;
-    }
-
-    #top-trains-panel {
-        height: 25%;
-        background: $panel;
-    }
-
     #sessions-panel {
-        height: 10%;
+        height: auto;
         background: $panel;
     }
 
@@ -332,29 +332,34 @@ class TrackerDashboard(App):
         yield Footer()
 
         with Container(id="main-container"), Horizontal():
+            # LEFT COLUMN: ACTIVE SESSION - "Right Now"
             with Vertical(id="left-column"):
                 yield SessionPanel(id="session-panel", classes="panel")
-                yield StatsPanel(id="stats-panel", classes="panel")
                 yield CompositionPanel(id="composition-panel", classes="panel")
-                yield DispatcherStationsPanel(id="dispatcher-stations-panel", classes="panel")
 
-            with Vertical(id="middle-column"):
                 with Container(id="upcoming-stations-panel", classes="panel"):
-                    yield Label("🚂 Upcoming Stations & Delays", id="upcoming-label")
+                    yield Label("🚉 Upcoming Stations & Delays", id="upcoming-label")
                     yield UpcomingStationsPanel()
 
                 with Container(id="passed-stations-panel", classes="panel"):
                     yield Label("📍 Passed Stations", id="passed-label")
                     yield PassedStationsPanel()
 
+            # MIDDLE COLUMN: HISTORICAL STATS - "All-Time"
+            with Vertical(id="middle-column"):
+                yield StatsPanel(id="stats-panel", classes="panel")
+
                 with Container(id="top-trains-panel", classes="panel"):
                     yield Label("🚂 Top Trains (All-Time)", id="top-trains-label")
                     yield TopTrainsPanel()
+
+                yield DispatcherStationsPanel(id="dispatcher-stations-panel", classes="panel")
 
                 with Container(id="sessions-panel", classes="panel"):
                     yield Label("📜 Recent Sessions", id="sessions-label")
                     yield SessionsPanel()
 
+            # RIGHT COLUMN: LIVE EVENTS - "What's Happening"
             with Vertical(id="right-column"), Container(id="event-log-panel", classes="panel"):
                 yield Label("📋 Event Log", id="log-label")
                 yield EventLogPanel()
