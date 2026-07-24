@@ -529,23 +529,12 @@ class TrackerDashboard(App):
             joined = datetime.fromisoformat(active_train["joined_at"])
             elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
 
-            # Calculate real-time distance estimate
-            current_distance = 0
-            if (
-                self.tracker.start_steam_distance
-                and active_train.get("baseline_distance") is not None
-            ):
-                current_distance = (
-                    self.tracker.start_steam_distance - active_train["baseline_distance"]
-                )
-
             session_text = f"""Train: {active_train["train_name"]} {active_train["train_number"]}
 Route: {active_train["start_station"]} → {active_train["end_station"]}
 Server: {active_train["server_name"]}
 Vehicle: {active_train.get("vehicle_summary", "Unknown")}
 
-Elapsed: {format_duration(elapsed)}
-Distance: {format_distance(current_distance)} (live estimate)"""
+Elapsed: {format_duration(elapsed)}"""
 
             session_panel.session_info = session_text
 
