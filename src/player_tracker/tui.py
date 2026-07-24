@@ -246,8 +246,7 @@ class TrackerDashboard(App):
     .panel {
         border: solid $primary;
         height: auto;
-        margin: 1;
-        padding: 1;
+        padding: 1 1;
     }
 
     #session-panel {
