@@ -72,15 +72,19 @@ class StatsPanel(Static):
         return self.stats_text
 
 
-class CompositionPanel(Static):
+class CompositionPanel(VerticalScroll):
     """Panel showing vehicle composition with expandable wagons."""
 
     composition_text = reactive("No composition data")
     wagons_expanded = reactive(False)
     _comp_data = None  # Store composition JSON
 
-    def render(self) -> str:
-        return self.composition_text
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.content_static = Static("")
+
+    def compose(self) -> ComposeResult:
+        yield self.content_static
 
     def on_click(self) -> None:
         """Toggle wagon expansion on click."""
@@ -92,6 +96,10 @@ class CompositionPanel(Static):
         """Store composition data and build display."""
         self._comp_data = comp_data
         self._rebuild_display()
+
+    def watch_composition_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        self.content_static.update(new_text)
 
     def _rebuild_display(self) -> None:
         """Rebuild the composition display with current expansion state."""
