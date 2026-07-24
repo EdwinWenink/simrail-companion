@@ -12,7 +12,6 @@ from textual.widgets import (
     DataTable,
     Footer,
     Header,
-    Label,
     Static,
 )
 
@@ -323,34 +322,48 @@ class TrackerDashboard(App):
         with Container(id="main-container"), Horizontal():
             # LEFT COLUMN: ACTIVE SESSION - "Right Now"
             with Vertical(id="left-column"):
-                yield SessionPanel(id="session-panel", classes="panel")
-                yield CompositionPanel(id="composition-panel", classes="panel")
+                session_panel = SessionPanel(id="session-panel", classes="panel")
+                session_panel.border_title = "🚂 Current Session"
+                yield session_panel
 
-                with Container(id="upcoming-stations-panel", classes="panel"):
-                    yield Label("🚉 Upcoming Stations & Delays", id="upcoming-label")
+                composition_panel = CompositionPanel(id="composition-panel", classes="panel")
+                composition_panel.border_title = "🧩 Vehicle Composition"
+                yield composition_panel
+
+                with Container(id="upcoming-stations-panel", classes="panel") as upcoming_container:
+                    upcoming_container.border_title = "🚉 Upcoming Stations & Delays"
                     yield UpcomingStationsPanel()
 
-                with Container(id="passed-stations-panel", classes="panel"):
-                    yield Label("📍 Passed Stations", id="passed-label")
+                with Container(id="passed-stations-panel", classes="panel") as passed_container:
+                    passed_container.border_title = "📍 Passed Stations"
                     yield PassedStationsPanel()
 
             # MIDDLE COLUMN: HISTORICAL STATS - "All-Time"
             with Vertical(id="middle-column"):
-                yield StatsPanel(id="stats-panel", classes="panel")
+                stats_panel = StatsPanel(id="stats-panel", classes="panel")
+                stats_panel.border_title = "📊 Lifetime Statistics"
+                yield stats_panel
 
-                with Container(id="top-trains-panel", classes="panel"):
-                    yield Label("🚂 Top Trains (All-Time)", id="top-trains-label")
+                with Container(id="top-trains-panel", classes="panel") as top_trains_container:
+                    top_trains_container.border_title = "🚂 Top Trains (All-Time)"
                     yield TopTrainsPanel()
 
-                yield DispatcherStationsPanel(id="dispatcher-stations-panel", classes="panel")
+                dispatcher_panel = DispatcherStationsPanel(
+                    id="dispatcher-stations-panel", classes="panel"
+                )
+                dispatcher_panel.border_title = "📍 Top Dispatcher Stations"
+                yield dispatcher_panel
 
-                with Container(id="sessions-panel", classes="panel"):
-                    yield Label("📜 Recent Sessions", id="sessions-label")
+                with Container(id="sessions-panel", classes="panel") as sessions_container:
+                    sessions_container.border_title = "📜 Recent Sessions"
                     yield SessionsPanel()
 
             # RIGHT COLUMN: LIVE EVENTS - "What's Happening"
-            with Vertical(id="right-column"), Container(id="event-log-panel", classes="panel"):
-                yield Label("📋 Event Log", id="log-label")
+            with (
+                Vertical(id="right-column"),
+                Container(id="event-log-panel", classes="panel") as log_container,
+            ):
+                log_container.border_title = "📋 Event Log"
                 yield EventLogPanel()
 
     async def on_mount(self) -> None:
