@@ -73,12 +73,24 @@ class StatsPanel(Static):
 
 
 class CompositionPanel(Static):
-    """Panel showing vehicle composition."""
+    """Panel showing vehicle composition with expandable wagons."""
 
     composition_text = reactive("No composition data")
+    wagons_expanded = reactive(False)
+    wagon_details = reactive([])
 
     def render(self) -> str:
         return self.composition_text
+
+    def on_click(self) -> None:
+        """Toggle wagon expansion on click."""
+        if self.wagon_details:
+            self.wagons_expanded = not self.wagons_expanded
+            self.update_composition_display()
+
+    def update_composition_display(self) -> None:
+        """Update the composition text with current expansion state."""
+        # This will be called from the dashboard update logic
 
 
 class DispatcherStationsPanel(Static):
@@ -526,27 +538,57 @@ Player is offline or not in a train/station."""
 
             comp = json.loads(active_train["composition_json"])
 
-            comp_text = "🚂 VEHICLE COMPOSITION\n\n"
+            # Build enhanced composition display
+            comp_text = ""
 
-            # Locomotives
+            # TRACTION (top level)
             if comp.get("locomotives"):
-                comp_text += "Locomotives:\n"
                 for loc in comp["locomotives"]:
-                    comp_text += f"  • {loc['displayName']}\n"
-
-            # EMUs
-            if comp.get("emus"):
-                comp_text += "EMU Units:\n"
+                    comp_text += f"🚂 {loc['displayName']}\n"
+            elif comp.get("emus"):
                 for emu in comp["emus"]:
-                    comp_text += f"  • {emu['displayName']}\n"
+                    comp_text += f"⚡ {emu['displayName']}\n"
 
-            # Summary stats
-            comp_text += f"\nTotal Vehicles: {comp.get('total_vehicles', 0)}\n"
-            comp_text += f"Wagons: {comp.get('num_wagons', 0)}\n"
+            # WAGONS/CARRIAGES (top level summary with expandable hint)
+            num_wagons = comp.get("num_wagons", 0)
+            if num_wagons > 0:
+                comp_text += f"\n🚃 Wagons ({num_wagons})"
+                if not composition_panel.wagons_expanded:
+                    comp_text += " [click to expand]"
+                comp_text += "\n"
+
+                # Store wagon details for expansion
+                wagons = [
+                    v
+                    for v in comp.get("vehicles", [])
+                    if v.get("type") not in ["LOCOMOTIVE", "EMU"]
+                ]
+                composition_panel.wagon_details = wagons
+
+                if composition_panel.wagons_expanded and wagons:
+                    comp_text += "\n"
+                    for i, wagon in enumerate(wagons, 1):
+                        name = wagon.get("displayName", wagon.get("name", "Unknown"))
+                        weight = wagon.get("weight", 0) or 0
+                        load = wagon.get("loadWeight", 0) or 0
+                        total = weight + load
+                        comp_text += f"  {i}. {name}\n"
+                        comp_text += f"     {total:.1f}t "
+                        if load > 0:
+                            comp_text += f"({weight:.1f}t + {load:.1f}t load)"
+                        comp_text += "\n"
+                        if wagon.get("load"):
+                            comp_text += f"     Load: {wagon['load']}\n"
+            else:
+                composition_panel.wagon_details = []
+
+            # TOTAL STATS (top level)
+            comp_text += "\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            comp_text += f"Total: {comp.get('total_vehicles', 0)} vehicles\n"
             if comp.get("total_length"):
                 comp_text += f"Length: {comp['total_length']:.0f} m\n"
             if comp.get("total_weight"):
-                comp_text += f"Weight: {comp['total_weight'] / 1000:.1f} t"
+                comp_text += f"Weight: {comp['total_weight']:.1f} t"
 
             composition_panel.composition_text = comp_text
         else:
