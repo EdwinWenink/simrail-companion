@@ -25,7 +25,10 @@ uv sync --dev
 
 ### Running
 ```bash
-# Main player tracker (requires STEAM_ID in .env)
+# TUI Dashboard - Real-time interactive tracker (RECOMMENDED)
+uv run tui_tracker.py
+
+# Main player tracker - CLI with logging output (requires STEAM_ID in .env)
 uv run main.py
 
 # View tracking summary
@@ -62,6 +65,41 @@ uv run ruff check .
 uv run pyright
 ```
 
+## User Interfaces
+
+### TUI Dashboard (`tui_tracker.py`)
+
+A real-time terminal UI built with [Textual](https://textual.textualize.io/) that provides:
+
+**Left Column:**
+- **Session Panel**: Current active train/station with live stats (train number, route, vehicle, elapsed time, distance estimate)
+- **Lifetime Stats Panel**: Aggregate statistics (sessions, distance, points, time)
+- **Vehicle Composition Panel**: Detailed consist information (locomotives, EMUs, wagons, length, weight)
+
+**Right Column:**
+- **Recent Stations**: Last 10 station passages from current session with stop types
+- **Recent Sessions**: Last 10 completed train sessions with distance/points/duration
+
+**Features:**
+- Auto-refreshes every 5 seconds
+- Keyboard shortcuts: `R` to refresh, `Q` to quit
+- Color-coded panels with zebra-striped tables
+- Handles single-instance locking (same as CLI tracker)
+- Clean shutdown with session finalization
+
+**Technical Notes:**
+- Runs tracker in background asyncio task
+- Uses reactive properties for efficient UI updates
+- Queries SQLite database directly for historical data
+- Respects the same PID lock as CLI tracker
+
+### CLI Tracker (`main.py`)
+
+Traditional logging-based tracker that outputs detailed logs to console. Best for:
+- Debugging tracker behavior
+- Following exact API interactions
+- Running in background with log redirection
+
 ## Architecture
 
 ### Source Layout (src/)
@@ -87,6 +125,7 @@ The codebase uses a `src/` layout with four main packages:
    - `database.py` - SQLite schema and queries
    - `summary.py` - Display formatting
    - `lock.py` - Single-instance PID lock to prevent concurrent trackers
+   - `tui.py` - Real-time Textual TUI dashboard with live updates
 
 ### Key Patterns
 

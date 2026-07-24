@@ -1,0 +1,62 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║  SimRail Tracker - 76561198XXXXXXXXX                          [Time: 14:23:45]  ║
+╠════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                ║
+║  ┌─────────────────────────────┬──────────────────────────────────────────┐   ║
+║  │ 🚂 DRIVING TRAIN 12345      │ 📍 Recent Station Passages              │   ║
+║  │                              │ ┌───────────────┬────────┬─────────┐   │   ║
+║  │ Train: IC 4523 Przemysl     │ │ Station       │ Type   │ Time    │   │   ║
+║  │ Route: Warszawa → Katowice  │ ├───────────────┼────────┼─────────┤   │   ║
+║  │ Server: EN1                  │ │ Sosnowiec     │ PASS   │ 14:15   │   │   ║
+║  │ Vehicle: EU07-096            │ │ Będzin        │ NONE   │ 14:10   │   │   ║
+║  │                              │ │ Dąbrowa Górn. │ TECH   │ 14:05   │   │   ║
+║  │ Elapsed: 1h 23m              │ └───────────────┴────────┴─────────┘   │   ║
+║  │ Distance: 87.3 km            │                                         │   ║
+║  └──────────────────────────────┤                                         │   ║
+║  │ 📊 LIFETIME STATISTICS       │                                         │   ║
+║  │                              │                                         │   ║
+║  │ Train Sessions: 42           ├─────────────────────────────────────────┤   ║
+║  │ Total Distance: 1,234.5 km  │ 🚂 Recent Sessions                      │   ║
+║  │ Total Points: 456,789        │ ┌─────┬──────────────┬────────┬──────┐│   ║
+║  │ Driving Time: 23h 45m        │ │Train│Route         │Distance│Points││   ║
+║  │ Dispatching Time: 5h 12m     │ ├─────┼──────────────┼────────┼──────┤│   ║
+║  └──────────────────────────────┤ │12345│Warszawa→Kat. │ 87.3 km│ 8,234││   ║
+║  │ 🚂 VEHICLE COMPOSITION       │ │67890│Krakow→Poznan │123.4 km│12,456││   ║
+║  │                              │ │33221│Gdynia→Warsza.│ 67.8 km│ 5,678││   ║
+║  │ Locomotives:                 │ └─────┴──────────────┴────────┴──────┘│   ║
+║  │   • EU07-096                 │                                         │   ║
+║  │                              │                                         │   ║
+║  │ Total Vehicles: 18           │                                         │   ║
+║  │ Wagons: 17                   │                                         │   ║
+║  │ Length: 387 m                │                                         │   ║
+║  │ Weight: 456.7 t              │                                         │   ║
+║  └──────────────────────────────┴─────────────────────────────────────────┘   ║
+║                                                                                ║
+║  [Refresh (R)]  [Quit (Q)]                                                     ║
+╠════════════════════════════════════════════════════════════════════════════════╣
+║  R: Refresh  Q: Quit                                                           ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+Features:
+─────────
+
+LEFT COLUMN:
+• Session Panel: Current train/station with real-time updates
+• Stats Panel: Lifetime aggregates (sessions, distance, points, time)
+• Composition Panel: Detailed vehicle consist with weights/lengths
+
+RIGHT COLUMN:
+• Stations Panel: Last 10 station passages with stop types
+• Sessions Panel: Recent completed sessions with stats
+
+CONTROLS:
+• Auto-refreshes every 5 seconds
+• R: Manual refresh
+• Q: Clean quit (finalizes session)
+• Ctrl+C: Emergency exit
+
+TECHNICAL:
+• Runs PlayerTracker in background asyncio task
+• Queries SQLite for historical data
+• Single-instance PID lock (same as CLI tracker)
+• Clean shutdown with session finalization

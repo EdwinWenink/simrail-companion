@@ -1,0 +1,789 @@
+"""Real-time TUI dashboard for player tracking using Textual."""
+
+import asyncio
+import logging
+from datetime import datetime, timezone
+from typing import Any, ClassVar
+
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.reactive import reactive
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Header,
+    Static,
+)
+
+from player_tracker import PlayerTracker
+from player_tracker.database import TrackerDatabase
+
+# Suppress verbose logging in TUI mode
+logging.getLogger("simrail_api").setLevel(logging.WARNING)
+logging.getLogger("simrail_steam").setLevel(logging.WARNING)
+logging.getLogger("simrail_tools_api").setLevel(logging.WARNING)
+logging.getLogger("player_tracker").setLevel(logging.WARNING)
+
+
+def format_duration(seconds: float | None) -> str:
+    """Format duration in seconds to human readable string."""
+    if seconds is None:
+        return "—"
+    hours, remainder = divmod(int(seconds), 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m {secs}s"
+
+
+def format_distance(meters: int | None) -> str:
+    """Format distance in meters to km."""
+    if meters is None:
+        return "—"
+    return f"{meters / 1000:.2f} km"
+
+
+def format_time(iso_time: str | None) -> str:
+    """Format ISO timestamp to HH:MM:SS."""
+    if not iso_time:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(iso_time)
+        return dt.strftime("%H:%M:%S")
+    except Exception:
+        return "—"
+
+
+class SessionPanel(Static):
+    """Panel showing current active session."""
+
+    session_info = reactive("No active session")
+
+    def render(self) -> str:
+        return self.session_info
+
+
+class StatsPanel(Static):
+    """Panel showing real-time statistics."""
+
+    stats_text = reactive("")
+
+    def render(self) -> str:
+        return self.stats_text
+
+
+class CompositionPanel(VerticalScroll):
+    """Panel showing vehicle composition with expandable wagons."""
+
+    composition_text = reactive("No composition data")
+    wagons_expanded = reactive(False)
+    _comp_data = None  # Store composition JSON
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.content_static = Static("")
+
+    def compose(self) -> ComposeResult:
+        yield self.content_static
+
+    def on_click(self) -> None:
+        """Toggle wagon expansion on click."""
+        if self._comp_data and self._comp_data.get("num_wagons", 0) > 0:
+            self.wagons_expanded = not self.wagons_expanded
+            self._rebuild_display()
+
+    def update_data(self, comp_data: dict | None) -> None:
+        """Store composition data and build display."""
+        self._comp_data = comp_data
+        self._rebuild_display()
+
+    def watch_composition_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        self.content_static.update(new_text)
+
+    def _rebuild_display(self) -> None:
+        """Rebuild the composition display with current expansion state."""
+        if not self._comp_data:
+            self.composition_text = "No composition data available"
+            return
+
+        comp = self._comp_data
+        comp_text = ""
+
+        # TRACTION (top level)
+        if comp.get("locomotives"):
+            for loc in comp["locomotives"]:
+                comp_text += f"🚂 {loc['displayName']}\n"
+        elif comp.get("emus"):
+            for emu in comp["emus"]:
+                comp_text += f"⚡ {emu['displayName']}\n"
+
+        # WAGONS/CARRIAGES (top level summary with expandable hint)
+        num_wagons = comp.get("num_wagons", 0)
+        if num_wagons > 0:
+            # Get wagon details (filter out locomotives and EMUs)
+            wagons = [
+                v
+                for v in comp.get("vehicles", [])
+                if v.get("type") not in ["LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT"]
+            ]
+
+            comp_text += f"\n🚃 Wagons ({num_wagons})"
+            if not self.wagons_expanded:
+                comp_text += " [click to expand]"
+            comp_text += "\n"
+
+            if self.wagons_expanded and wagons:
+                comp_text += "\n"
+                for i, wagon in enumerate(wagons, 1):
+                    name = wagon.get("displayName", wagon.get("name", "Unknown"))
+                    weight = wagon.get("weight", 0) or 0
+                    load_weight = wagon.get("loadWeight") or 0
+                    load_type = wagon.get("load")
+
+                    comp_text += f"  {i}. {name}\n"
+                    comp_text += f"     Railcar: {weight:.1f}t"
+                    if load_weight > 0:
+                        comp_text += f", Load: {load_weight}t"
+                        if load_type:
+                            comp_text += f" ({load_type})"
+                    comp_text += "\n"
+
+        # TOTAL STATS (top level)
+        comp_text += "\n"
+        comp_text += f"Total: {comp.get('total_vehicles', 0)} vehicles\n"
+        if comp.get("total_length"):
+            comp_text += f"Length: {comp['total_length']:.0f} m\n"
+        if comp.get("total_weight"):
+            comp_text += f"Weight: {comp['total_weight']:.1f} t"
+
+        self.composition_text = comp_text
+
+
+class DispatcherStationsPanel(Static):
+    """Panel showing dispatcher station statistics."""
+
+    stations_text = reactive("No dispatcher data")
+
+    def render(self) -> str:
+        return self.stations_text
+
+
+class UpcomingStationsPanel(VerticalScroll):
+    """Panel showing upcoming stations with delays."""
+
+    upcoming_text = reactive("No upcoming station data")
+
+    def compose(self) -> ComposeResult:
+        yield Static(id="upcoming-content")
+
+    def watch_upcoming_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        try:
+            content = self.query_one("#upcoming-content", Static)
+            content.update(new_text)
+        except Exception as e:
+            logging.getLogger(__name__).debug("Could not update upcoming stations: %s", e)
+
+
+class PassedStationsPanel(VerticalScroll):
+    """Panel showing recently passed station passages."""
+
+    stations_table: DataTable
+
+    def compose(self) -> ComposeResult:
+        self.stations_table = DataTable()
+        self.stations_table.add_columns("Station", "Type", "Time")
+        self.stations_table.zebra_stripes = True
+        yield self.stations_table
+
+    def update_stations(self, stations: list[dict[str, Any]]) -> None:
+        """Update the stations table."""
+        self.stations_table.clear()
+        for station in stations[:10]:  # Show first 10 (already ordered DESC by query)
+            self.stations_table.add_row(
+                station["station_name"],
+                station["stop_type"],
+                format_time(station["passed_at"]),
+            )
+
+
+class EventLogPanel(VerticalScroll):
+    """Panel showing event log messages."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.log_lines: list[str] = []
+        self.log_static = Static("")
+
+    def compose(self) -> ComposeResult:
+        yield self.log_static
+
+    def add_log(self, message: str) -> None:
+        """Add a log message with timestamp."""
+        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        self.log_lines.append(f"[{timestamp}] {message}")
+        # Keep last 50 lines
+        if len(self.log_lines) > 50:
+            self.log_lines = self.log_lines[-50:]
+        self.log_static.update("\n".join(self.log_lines))
+        # Auto-scroll to bottom
+        self.scroll_end(animate=False)
+
+
+class TopTrainsPanel(VerticalScroll):
+    """Panel showing top trains by time driven."""
+
+    trains_table: DataTable
+
+    def compose(self) -> ComposeResult:
+        self.trains_table = DataTable()
+        self.trains_table.add_columns("Train/Vehicle", "Distance", "Points", "Time")
+        self.trains_table.zebra_stripes = True
+        yield self.trains_table
+
+    def update_trains(self, trains_by_type: dict[str, dict[str, Any]]) -> None:
+        """Update the top trains table."""
+        self.trains_table.clear()
+
+        # Sort by time (descending)
+        sorted_trains = sorted(
+            trains_by_type.items(),
+            key=lambda x: x[1]["time"],
+            reverse=True,
+        )
+
+        for vehicle, data in sorted_trains[:10]:  # Show top 10
+            distance_km = data["distance"] / 1000
+            time_str = format_duration(data["time"])
+            # Truncate long vehicle names
+            vehicle_display = vehicle[:28] if len(vehicle) <= 28 else vehicle[:25] + "..."
+
+            self.trains_table.add_row(
+                vehicle_display,
+                f"{distance_km:.1f} km",
+                f"{data['points']:,}",
+                time_str,
+            )
+
+
+class SessionsPanel(VerticalScroll):
+    """Panel showing recent completed sessions."""
+
+    sessions_table: DataTable
+
+    def compose(self) -> ComposeResult:
+        self.sessions_table = DataTable()
+        self.sessions_table.add_columns("Train", "Vehicle", "Distance", "Points", "Time")
+        self.sessions_table.zebra_stripes = True
+        yield self.sessions_table
+
+    def update_sessions(self, sessions: list[dict[str, Any]]) -> None:
+        """Update the sessions table."""
+        self.sessions_table.clear()
+        for session in sessions[:5]:  # Show last 5 sessions (space constrained)
+            if session["left_at"]:  # Only show completed sessions
+                duration = None
+                if session["joined_at"] and session["left_at"]:
+                    start = datetime.fromisoformat(session["joined_at"])
+                    end = datetime.fromisoformat(session["left_at"])
+                    duration = (end - start).total_seconds()
+
+                # Get vehicle name, truncate if needed
+                vehicle = session.get("vehicle_summary", "Unknown")
+                vehicle_display = vehicle[:20] if len(vehicle) <= 20 else vehicle[:17] + "..."
+
+                # Format points
+                points = session.get("points", 0) or 0
+                points_str = f"{points:,}" if points > 0 else "0"
+
+                self.sessions_table.add_row(
+                    session["train_number"],
+                    vehicle_display,
+                    format_distance(session.get("distance_meters")),
+                    points_str,
+                    format_duration(duration),
+                )
+
+
+class TrackerDashboard(App):
+    """A Textual app for real-time SimRail session tracking."""
+
+    CSS = """
+    Screen {
+        background: $surface;
+    }
+
+    #main-container {
+        height: 1fr;
+        width: 1fr;
+        border: solid white;
+    }
+
+    #left-column {
+        width: 35%;
+        height: 100%;
+    }
+
+    #middle-column {
+        width: 40%;
+        height: 100%;
+    }
+
+    #right-column {
+        width: 25%;
+        height: 100%;
+    }
+
+    .panel {
+        border: solid $primary;
+        height: auto;
+        padding: 1 1;
+    }
+
+    #session-panel {
+        height: 20%;
+        background: $boost;
+    }
+
+    #composition-panel {
+        height: 25%;
+        background: $panel;
+    }
+
+    #upcoming-stations-panel {
+        height: 35%;
+        background: $panel;
+    }
+
+    #passed-stations-panel {
+        height: 20%;
+        background: $panel;
+    }
+
+    #stats-panel {
+        height: 20%;
+        background: $panel;
+    }
+
+    #top-trains-panel {
+        height: 30%;
+        background: $panel;
+    }
+
+    #dispatcher-stations-panel {
+        height: 25%;
+        background: $panel;
+    }
+
+    #sessions-panel {
+        height: 25%;
+        background: $panel;
+    }
+
+    #event-log-panel {
+        height: 100%;
+        background: $panel;
+    }
+
+    DataTable {
+        height: 100%;
+    }
+    """
+
+    BINDINGS: ClassVar = [
+        ("q", "quit", "Quit"),
+        ("r", "refresh", "Refresh"),
+    ]
+
+    def __init__(self, steam_id: str, db_path: str = "data/player_tracker.db"):
+        super().__init__()
+        self.theme = "textual-light"
+        self.steam_id = steam_id
+        self.db_path = db_path
+        self.tracker: PlayerTracker | None = None
+        self.db: TrackerDatabase | None = None
+        self.tracker_task: asyncio.Task | None = None
+        self.update_task: asyncio.Task | None = None
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for the app."""
+        yield Header(show_clock=True)
+        yield Footer()
+
+        with Container(id="main-container"), Horizontal():
+            # LEFT COLUMN: ACTIVE SESSION - "Right Now"
+            with Vertical(id="left-column"):
+                session_panel = SessionPanel(id="session-panel", classes="panel")
+                session_panel.border_title = "🚂 Current Session"
+                yield session_panel
+
+                composition_panel = CompositionPanel(id="composition-panel", classes="panel")
+                composition_panel.border_title = "🧩 Vehicle Composition"
+                yield composition_panel
+
+                with Container(id="upcoming-stations-panel", classes="panel") as upcoming_container:
+                    upcoming_container.border_title = "🚉 Upcoming Stations & Delays"
+                    yield UpcomingStationsPanel()
+
+                with Container(id="passed-stations-panel", classes="panel") as passed_container:
+                    passed_container.border_title = "📍 Passed Stations"
+                    yield PassedStationsPanel()
+
+            # MIDDLE COLUMN: HISTORICAL STATS - "All-Time"
+            with Vertical(id="middle-column"):
+                stats_panel = StatsPanel(id="stats-panel", classes="panel")
+                stats_panel.border_title = "📊 Lifetime Statistics"
+                yield stats_panel
+
+                with Container(id="top-trains-panel", classes="panel") as top_trains_container:
+                    top_trains_container.border_title = "🚂 Top Traction (All-Time)"
+                    yield TopTrainsPanel()
+
+                dispatcher_panel = DispatcherStationsPanel(
+                    id="dispatcher-stations-panel", classes="panel"
+                )
+                dispatcher_panel.border_title = "📍 Top Dispatcher Stations"
+                yield dispatcher_panel
+
+                with Container(id="sessions-panel", classes="panel") as sessions_container:
+                    sessions_container.border_title = "📜 Recent Sessions"
+                    yield SessionsPanel()
+
+            # RIGHT COLUMN: LIVE EVENTS - "What's Happening"
+            with (
+                Vertical(id="right-column"),
+                Container(id="event-log-panel", classes="panel") as log_container,
+            ):
+                log_container.border_title = "📋 Event Log"
+                yield EventLogPanel()
+
+    async def on_mount(self) -> None:
+        """Start tracking when app starts."""
+        self.title = f"SimRail Tracker - {self.steam_id}"
+        self.sub_title = "Real-time Session Monitoring"
+
+        # Initialize tracker and database
+        self.tracker = PlayerTracker(steam_id=self.steam_id, db_path=self.db_path, poll_interval=30)
+        self.db = TrackerDatabase(self.db_path)
+
+        # Set up logging to event panel
+        self._setup_event_logging()
+
+        # Start tracker in background
+        self.tracker_task = asyncio.create_task(self.tracker.start())
+
+        # Start update loop
+        self.update_task = asyncio.create_task(self.update_dashboard_loop())
+
+        # Initial update
+        await self.update_dashboard()
+        self.log_event("✅ Tracker started")
+
+    def _setup_event_logging(self) -> None:
+        """Set up logging handler to pipe tracker logs to event panel."""
+
+        class TUILogHandler(logging.Handler):
+            def __init__(self, dashboard: TrackerDashboard):
+                super().__init__()
+                self.dashboard = dashboard
+
+            def emit(self, record: logging.LogRecord) -> None:
+                try:
+                    msg = self.format(record)
+                    # Filter out verbose messages
+                    if "Checking activity" in msg or "still on train" in msg:
+                        return
+                    self.dashboard.log_event(msg)
+                except Exception as e:
+                    # Suppress - logging to UI is non-critical
+                    logging.getLogger(__name__).debug("Log emit error: %s", e)
+
+        # Add handler to player_tracker logger
+        tracker_logger = logging.getLogger("player_tracker")
+        tracker_logger.setLevel(logging.INFO)
+        handler = TUILogHandler(self)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        tracker_logger.addHandler(handler)
+
+    def log_event(self, message: str) -> None:
+        """Add an event to the log panel."""
+        try:
+            event_log = self.query_one(EventLogPanel)
+            event_log.add_log(message)
+        except Exception as e:
+            # Ignore if panel not ready yet
+            logging.getLogger(__name__).debug("Log event error: %s", e)
+
+    async def update_dashboard_loop(self) -> None:
+        """Continuously update dashboard."""
+        while True:
+            try:
+                await asyncio.sleep(5)  # Update every 5 seconds
+                await self.update_dashboard()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                # Log but continue - don't crash dashboard on data errors
+                logging.getLogger(__name__).debug("Update error: %s", e)
+
+    async def update_dashboard(self) -> None:
+        """Update all dashboard panels with current data."""
+        if not self.tracker or not self.db:
+            return
+
+        # Update session panel
+        session_panel = self.query_one("#session-panel", SessionPanel)
+        active_train = self.db.get_active_train_session(self.steam_id)
+        active_station = self.db.get_active_station_session(self.steam_id)
+
+        if active_train:
+            joined = datetime.fromisoformat(active_train["joined_at"])
+            elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
+
+            session_text = f"""Train: {active_train["train_name"]} {active_train["train_number"]}
+Route: {active_train["start_station"]} → {active_train["end_station"]}
+Server: {active_train["server_name"]}
+Vehicle: {active_train.get("vehicle_summary", "Unknown")}
+
+Elapsed: {format_duration(elapsed)}"""
+
+            session_panel.session_info = session_text
+
+        elif active_station:
+            joined = datetime.fromisoformat(active_station["joined_at"])
+            elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
+
+            session_text = f"""Station: {active_station["station_name"]} ({active_station["station_prefix"]})
+Server: {active_station["server_name"]}
+
+Elapsed: {format_duration(elapsed)}"""
+
+            session_panel.session_info = session_text
+        else:
+            session_panel.session_info = """Player is offline or not in a train/station."""
+
+        # Update stats panel
+        stats_panel = self.query_one("#stats-panel", StatsPanel)
+        stats = self.db.get_stats(self.steam_id)
+
+        # Get Steam baseline stats for comparison
+        latest_steam = self.db.get_latest_steam_stats(self.steam_id)
+
+        stats_text = ""
+
+        # Steam baseline (if available)
+        if latest_steam:
+            steam_distance_km = latest_steam["total_distance_meters"] / 1000
+            steam_points = latest_steam["total_score"]
+            stats_text += f"Steam Total: {steam_distance_km:,.1f} km, {steam_points:,} pts\n\n"
+
+        # Calculate coverage percentage first
+        coverage_str = ""
+        if latest_steam and latest_steam["total_distance_meters"] > 0:
+            coverage = (
+                stats["total_distance_meters"] / latest_steam["total_distance_meters"]
+            ) * 100
+            coverage_str = f" ({coverage:.1f}% coverage)"
+
+        # Tracked stats
+        stats_text += f"Train Sessions: {stats['train_sessions']}\n"
+        stats_text += f"Tracked: {format_distance(stats['total_distance_meters'])}{coverage_str}\n"
+        stats_text += f"Points: {stats['total_points']:,}\n"
+        stats_text += f"Driving: {format_duration(stats['total_train_time_seconds'])}\n"
+        stats_text += f"Dispatching: {format_duration(stats['total_dispatcher_time_seconds'])}"
+
+        stats_panel.stats_text = stats_text
+
+        # Update composition panel
+        composition_panel = self.query_one("#composition-panel", CompositionPanel)
+        if active_train and active_train.get("composition_json"):
+            import json
+
+            comp = json.loads(active_train["composition_json"])
+            composition_panel.update_data(comp)
+        else:
+            composition_panel.update_data(None)
+
+        # Update dispatcher stations panel
+        dispatcher_panel = self.query_one("#dispatcher-stations-panel", DispatcherStationsPanel)
+        if stats.get("stations_by_name"):
+            # Sort by time spent
+            sorted_stations = sorted(
+                stats["stations_by_name"].items(), key=lambda x: x[1], reverse=True
+            )
+
+            dispatcher_text = ""
+            for i, (station, time_seconds) in enumerate(sorted_stations[:8], 1):
+                time_str = format_duration(time_seconds)
+                # Truncate long station names
+                station_display = station[:24] if len(station) <= 24 else station[:21] + "..."
+                dispatcher_text += f"{i}. {station_display:<24} {time_str:>8}\n"
+
+            dispatcher_panel.stations_text = dispatcher_text
+        else:
+            dispatcher_panel.stations_text = "No dispatcher data yet"
+
+        # Update upcoming stations panel with delay info
+        upcoming_panel = self.query_one(UpcomingStationsPanel)
+        if active_train and self.tracker.current_journey_id:
+            try:
+                logging.getLogger(__name__).debug(
+                    "Fetching delays for journey %s", self.tracker.current_journey_id[:16]
+                )
+                # Get delays from SimRail Tools API (API filters to upcoming only)
+                delays = await self.tracker.simrail_tools_client.get_journey_delays(
+                    self.tracker.current_journey_id, upcoming_only=True
+                )
+
+                # Take first 5 upcoming stations
+                upcoming_delays = delays[:5]
+
+                if upcoming_delays:
+                    lines = ["Next 5 Stations:\n"]
+                    for i, delay in enumerate(upcoming_delays, 1):
+                        # Format times
+                        scheduled = delay.scheduled_time.strftime("%H:%M")
+                        realtime = delay.realtime_time.strftime("%H:%M")
+
+                        # Stop indicator
+                        if delay.stop_type == "NONE":
+                            stop_ind = "━━━"
+                        elif delay.event_type == "ARRIVAL":
+                            stop_ind = "[A]"
+                        elif delay.event_type == "DEPARTURE":
+                            stop_ind = "[D]"
+                        else:
+                            stop_ind = "   "
+
+                        # Delay indicator
+                        delay_min = delay.delay_minutes
+                        if abs(delay_min) > 1:
+                            if delay_min > 0:
+                                delay_str = f"+{delay_min:.0f}m 🔴"
+                            else:
+                                delay_str = f"{delay_min:.0f}m 🟢"
+                        else:
+                            delay_str = "on time ⚪"
+
+                        # Time type
+                        if delay.time_type.upper() == "SCHEDULE":
+                            time_ind = "📅"
+                        elif delay.time_type.upper() == "PREDICTION":
+                            time_ind = "🔮"
+                        else:
+                            time_ind = ""
+
+                        # Dispatcher for next station
+                        dispatcher = ""
+                        if i == 1 and delay.event_type != "PASS":
+                            try:
+                                stations = await self.tracker.simrail_client.get_stations(
+                                    active_train["server_code"]
+                                )
+                                for station in stations:
+                                    if station["Name"] == delay.station_name:
+                                        dispatchers = station.get("DispatchedBy", [])
+                                        if dispatchers and dispatchers[0].get("SteamId"):
+                                            dispatcher = " 👤"
+                                        else:
+                                            dispatcher = " 🤖"
+                                        break
+                            except Exception as e:
+                                # Non-critical - dispatcher status is optional
+                                logging.getLogger(__name__).debug("Dispatcher check error: %s", e)
+
+                        line = f"{i}. {stop_ind} {delay.station_name[:28]:<28}\n"
+                        line += f"   {scheduled}→{realtime} {delay_str} {time_ind}{dispatcher}"
+
+                        lines.append(line)
+
+                    upcoming_panel.upcoming_text = "\n\n".join(lines)
+                else:
+                    upcoming_panel.upcoming_text = "No upcoming stations"
+            except Exception as e:
+                logging.getLogger(__name__).exception("Error fetching upcoming stations")
+                upcoming_panel.upcoming_text = f"Could not fetch delay info:\n{e}"
+        else:
+            logging.getLogger(__name__).debug(
+                "No upcoming stations: active_train=%s, journey_id=%s",
+                bool(active_train),
+                self.tracker.current_journey_id[:16] if self.tracker.current_journey_id else None,
+            )
+            upcoming_panel.upcoming_text = "No active train or no journey data"
+
+        # Update passed stations panel
+        if active_train:
+            passed_panel = self.query_one(PassedStationsPanel)
+            # Get station passages for current session
+            import sqlite3
+
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
+                cursor = conn.execute(
+                    """
+                    SELECT station_name, stop_type, passed_at
+                    FROM train_station_passages
+                    WHERE train_session_id = ?
+                    ORDER BY passed_at DESC
+                    """,
+                    (active_train["id"],),
+                )
+                stations = cursor.fetchall()
+                passed_panel.update_stations(stations)
+
+        # Update top trains panel
+        top_trains_panel = self.query_one(TopTrainsPanel)
+        if stats.get("trains_by_type"):
+            top_trains_panel.update_trains(stats["trains_by_type"])
+        else:
+            top_trains_panel.trains_table.clear()
+
+        # Update recent sessions panel
+        sessions_panel = self.query_one(SessionsPanel)
+        recent_sessions = self.db.get_train_sessions(self.steam_id, limit=5)
+        sessions_panel.update_sessions(recent_sessions)
+
+    async def action_refresh(self) -> None:
+        """Manually refresh the dashboard."""
+        await self.update_dashboard()
+
+    async def action_quit(self) -> None:
+        """Quit the application."""
+        await self.shutdown()
+
+    async def shutdown(self) -> None:
+        """Clean shutdown of tracker and tasks."""
+        # Cancel update task
+        if self.update_task:
+            self.update_task.cancel()
+            try:
+                await self.update_task
+            except asyncio.CancelledError:
+                pass
+
+        # Stop tracker
+        if self.tracker:
+            self.tracker.stop()
+
+            # Cancel tracker task
+            if self.tracker_task:
+                self.tracker_task.cancel()
+                try:
+                    await asyncio.wait_for(self.tracker_task, timeout=2.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    pass
+
+            # Close connections
+            try:
+                await self.tracker.close()
+            except Exception as e:
+                # Log but don't fail shutdown
+                logging.getLogger(__name__).debug("Cleanup error: %s", e)
+
+        # Exit app
+        self.exit()
+
+    async def on_unmount(self) -> None:
+        """Cleanup when app unmounts."""
+        await self.shutdown()

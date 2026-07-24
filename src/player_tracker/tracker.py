@@ -268,6 +268,9 @@ class PlayerTracker:
                     # Count wagons (non-locomotive, non-EMU vehicles)
                     num_wagons = len(vehicles.wagons)
 
+                    # Build a structured representation of the vehicle composition
+                    # This will be stored at composition_json
+                    # TODO make a Pydantic model for this structure for better validation and type safety
                     composition = {
                         "traction_type": traction_type,
                         "locomotives": [
@@ -554,7 +557,7 @@ class PlayerTracker:
                     )
                     return
 
-            # Get ALL delays (including past) in one API call
+            # Get ALL delays (including past) in one API call for station passage recording
             all_delays = await self.simrail_tools_client.get_journey_delays(
                 journey_id, upcoming_only=False
             )
@@ -579,8 +582,10 @@ class PlayerTracker:
                             delay.stop_type,
                         )
 
-            # Filter for upcoming delays in Python (avoid second API call)
-            delays = [d for d in all_delays if d.time_type != "REAL"]
+            # Get upcoming delays (API properly filters after last REAL event)
+            delays = await self.simrail_tools_client.get_journey_delays(
+                journey_id, upcoming_only=True
+            )
 
             if not delays:
                 logger.info("⚠️  No upcoming stations in timetable (journey may have ended)")
