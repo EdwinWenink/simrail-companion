@@ -139,7 +139,7 @@ class CompositionPanel(Static):
                         comp_text += f"     Load: {wagon['load']}\n"
 
         # TOTAL STATS (top level)
-        comp_text += "\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        comp_text += "\n"
         comp_text += f"Total: {comp.get('total_vehicles', 0)} vehicles\n"
         if comp.get("total_length"):
             comp_text += f"Length: {comp['total_length']:.0f} m\n"
@@ -425,7 +425,7 @@ class TrackerDashboard(App):
                 yield stats_panel
 
                 with Container(id="top-trains-panel", classes="panel") as top_trains_container:
-                    top_trains_container.border_title = "🚂 Top Trains (All-Time)"
+                    top_trains_container.border_title = "🚂 Top Traction (All-Time)"
                     yield TopTrainsPanel()
 
                 dispatcher_panel = DispatcherStationsPanel(
@@ -564,9 +564,7 @@ Elapsed: {format_duration(elapsed)}"""
 
             session_panel.session_info = session_text
         else:
-            session_panel.session_info = """⚪ NO ACTIVE SESSION
-
-Player is offline or not in a train/station."""
+            session_panel.session_info = """Player is offline or not in a train/station."""
 
         # Update stats panel
         stats_panel = self.query_one("#stats-panel", StatsPanel)
