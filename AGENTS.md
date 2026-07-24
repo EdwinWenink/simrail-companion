@@ -142,7 +142,9 @@ The codebase uses a `src/` layout with four main packages:
 1. **Steam API Limitations**:
    - Only provides aggregate stats (total distance, total score, total dispatcher time)
    - No per-session breakdown from Steam API itself
-   - Stats may be delayed or may not update in real-time
+   - **Stats may be delayed and do not update in real-time**
+   - Tracker retries 3 times with 2s delays to wait for Steam stats to update
+   - If stats don't update within ~6 seconds, session records 0 distance/points
    - Profile must be public for stats to be accessible
 
 2. **Double-Headed Locomotives**:

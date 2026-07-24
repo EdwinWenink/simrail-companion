@@ -88,6 +88,10 @@ simrail-companion/
 
 ## Usage
 
+**Important**: accurate tracking of distance and points requires that your session finishes before you shut down the tracker.
+This is because the tracker needs to compare your Steam stats before and after the session to calculate the distance driven and points scored.
+If you are playing a long session and your game crashes, you similarly lose points because SimRail only updates steam if the session is closed normally.
+
 If you run the main script, everything is automatically tracked for your session and reported back to you.
 
 ```bash
@@ -143,4 +147,3 @@ SimRail uses Steam App ID: `1422130`
 ## Idea box
 
 - When player is still offline, use `GET /sit-journeys/v2/by-playable-departure` to list some upcoming possible journeys.
-
