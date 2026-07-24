@@ -539,9 +539,7 @@ class TrackerDashboard(App):
                     self.tracker.start_steam_distance - active_train["baseline_distance"]
                 )
 
-            session_text = f"""🚂 DRIVING TRAIN {active_train["train_number"]}
-
-Train: {active_train["train_name"]}
+            session_text = f"""Train: {active_train["train_name"]} {active_train["train_number"]}
 Route: {active_train["start_station"]} → {active_train["end_station"]}
 Server: {active_train["server_name"]}
 Vehicle: {active_train.get("vehicle_summary", "Unknown")}
@@ -555,9 +553,7 @@ Distance: {format_distance(current_distance)} (live estimate)"""
             joined = datetime.fromisoformat(active_station["joined_at"])
             elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
 
-            session_text = f"""📍 DISPATCHING STATION
-
-Station: {active_station["station_name"]} ({active_station["station_prefix"]})
+            session_text = f"""Station: {active_station["station_name"]} ({active_station["station_prefix"]})
 Server: {active_station["server_name"]}
 
 Elapsed: {format_duration(elapsed)}"""
