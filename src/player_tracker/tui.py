@@ -146,6 +146,42 @@ class EventLogPanel(VerticalScroll):
         self.scroll_end(animate=False)
 
 
+class TopTrainsPanel(VerticalScroll):
+    """Panel showing top trains by time driven."""
+
+    trains_table: DataTable
+
+    def compose(self) -> ComposeResult:
+        self.trains_table = DataTable()
+        self.trains_table.add_columns("Train/Vehicle", "Distance", "Points", "Time")
+        self.trains_table.zebra_stripes = True
+        yield self.trains_table
+
+    def update_trains(self, trains_by_type: dict[str, dict[str, Any]]) -> None:
+        """Update the top trains table."""
+        self.trains_table.clear()
+
+        # Sort by time (descending)
+        sorted_trains = sorted(
+            trains_by_type.items(),
+            key=lambda x: x[1]["time"],
+            reverse=True,
+        )
+
+        for vehicle, data in sorted_trains[:10]:  # Show top 10
+            distance_km = data["distance"] / 1000
+            time_str = format_duration(data["time"])
+            # Truncate long vehicle names
+            vehicle_display = vehicle[:28] if len(vehicle) <= 28 else vehicle[:25] + "..."
+
+            self.trains_table.add_row(
+                vehicle_display,
+                f"{distance_km:.1f} km",
+                f"{data['points']:,}",
+                time_str,
+            )
+
+
 class SessionsPanel(VerticalScroll):
     """Panel showing recent completed sessions."""
 
@@ -153,14 +189,14 @@ class SessionsPanel(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         self.sessions_table = DataTable()
-        self.sessions_table.add_columns("Train", "Route", "Distance", "Points", "Time")
+        self.sessions_table.add_columns("Train", "Vehicle", "Distance", "Time")
         self.sessions_table.zebra_stripes = True
         yield self.sessions_table
 
     def update_sessions(self, sessions: list[dict[str, Any]]) -> None:
         """Update the sessions table."""
         self.sessions_table.clear()
-        for session in sessions[:10]:  # Show last 10 sessions
+        for session in sessions[:5]:  # Show last 5 sessions (space constrained)
             if session["left_at"]:  # Only show completed sessions
                 duration = None
                 if session["joined_at"] and session["left_at"]:
@@ -168,11 +204,14 @@ class SessionsPanel(VerticalScroll):
                     end = datetime.fromisoformat(session["left_at"])
                     duration = (end - start).total_seconds()
 
+                # Get vehicle name, truncate if needed
+                vehicle = session.get("vehicle_summary", "Unknown")
+                vehicle_display = vehicle[:20] if len(vehicle) <= 20 else vehicle[:17] + "..."
+
                 self.sessions_table.add_row(
                     session["train_number"],
-                    f"{session['start_station'][:15]} → {session['end_station'][:15]}",
+                    vehicle_display,
                     format_distance(session.get("distance_meters")),
-                    str(session.get("points", "—")),
                     format_duration(duration),
                 )
 
@@ -238,12 +277,17 @@ class TrackerDashboard(App):
     }
 
     #passed-stations-panel {
+        height: 15%;
+        background: $panel;
+    }
+
+    #top-trains-panel {
         height: 25%;
         background: $panel;
     }
 
     #sessions-panel {
-        height: 25%;
+        height: 10%;
         background: $panel;
     }
 
@@ -303,8 +347,12 @@ class TrackerDashboard(App):
                     yield Label("📍 Passed Stations", id="passed-label")
                     yield PassedStationsPanel()
 
+                with Container(id="top-trains-panel", classes="panel"):
+                    yield Label("🚂 Top Trains (All-Time)", id="top-trains-label")
+                    yield TopTrainsPanel()
+
                 with Container(id="sessions-panel", classes="panel"):
-                    yield Label("🚂 Recent Sessions", id="sessions-label")
+                    yield Label("📜 Recent Sessions", id="sessions-label")
                     yield SessionsPanel()
 
             with Vertical(id="right-column"), Container(id="event-log-panel", classes="panel"):
@@ -620,9 +668,16 @@ Player is offline or not in a train/station."""
                 stations = cursor.fetchall()
                 passed_panel.update_stations(stations)
 
-        # Update sessions panel
+        # Update top trains panel
+        top_trains_panel = self.query_one(TopTrainsPanel)
+        if stats.get("trains_by_type"):
+            top_trains_panel.update_trains(stats["trains_by_type"])
+        else:
+            top_trains_panel.trains_table.clear()
+
+        # Update recent sessions panel
         sessions_panel = self.query_one(SessionsPanel)
-        recent_sessions = self.db.get_train_sessions(self.steam_id, limit=10)
+        recent_sessions = self.db.get_train_sessions(self.steam_id, limit=5)
         sessions_panel.update_sessions(recent_sessions)
 
     async def action_refresh(self) -> None:
