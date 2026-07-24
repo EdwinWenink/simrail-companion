@@ -9,7 +9,6 @@ from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.widgets import (
-    Button,
     DataTable,
     Footer,
     Header,
@@ -225,8 +224,9 @@ class TrackerDashboard(App):
     }
 
     #main-container {
-        height: 100%;
-        width: 100%;
+        height: 1fr;
+        width: 1fr;
+        border: solid white;
     }
 
     #left-column {
@@ -252,27 +252,27 @@ class TrackerDashboard(App):
     }
 
     #session-panel {
-        height: 12;
+        height: 20%;
         background: $boost;
     }
 
     #composition-panel {
-        height: auto;
+        height: 25%;
         background: $panel;
     }
 
     #upcoming-stations-panel {
-        height: 40%;
+        height: 35%;
         background: $panel;
     }
 
     #passed-stations-panel {
-        height: auto;
+        height: 20%;
         background: $panel;
     }
 
     #stats-panel {
-        height: 14;
+        height: 20%;
         background: $panel;
     }
 
@@ -282,29 +282,18 @@ class TrackerDashboard(App):
     }
 
     #dispatcher-stations-panel {
-        height: auto;
+        height: 25%;
         background: $panel;
     }
 
     #sessions-panel {
-        height: auto;
+        height: 25%;
         background: $panel;
     }
 
     #event-log-panel {
         height: 100%;
         background: $panel;
-    }
-
-    #controls {
-        height: auto;
-        dock: bottom;
-        background: $surface;
-        padding: 1;
-    }
-
-    Button {
-        margin: 0 1;
     }
 
     DataTable {
@@ -363,10 +352,6 @@ class TrackerDashboard(App):
             with Vertical(id="right-column"), Container(id="event-log-panel", classes="panel"):
                 yield Label("📋 Event Log", id="log-label")
                 yield EventLogPanel()
-
-        with Horizontal(id="controls"):
-            yield Button("Refresh [R]", id="refresh-btn", variant="primary")
-            yield Button("Quit [Q]", id="quit-btn", variant="error")
 
     async def on_mount(self) -> None:
         """Start tracking when app starts."""
@@ -692,13 +677,6 @@ Player is offline or not in a train/station."""
     async def action_quit(self) -> None:
         """Quit the application."""
         await self.shutdown()
-
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
-        if event.button.id == "refresh-btn":
-            await self.action_refresh()
-        elif event.button.id == "quit-btn":
-            await self.action_quit()
 
     async def shutdown(self) -> None:
         """Clean shutdown of tracker and tasks."""
