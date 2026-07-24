@@ -83,6 +83,15 @@ class CompositionPanel(Static):
         return self.composition_text
 
 
+class DispatcherStationsPanel(Static):
+    """Panel showing dispatcher station statistics."""
+
+    stations_text = reactive("No dispatcher data")
+
+    def render(self) -> str:
+        return self.stations_text
+
+
 class UpcomingStationsPanel(Static):
     """Panel showing upcoming stations with delays."""
 
@@ -218,6 +227,11 @@ class TrackerDashboard(App):
         background: $panel;
     }
 
+    #dispatcher-stations-panel {
+        height: auto;
+        background: $panel;
+    }
+
     #upcoming-stations-panel {
         height: 50%;
         background: $panel;
@@ -278,6 +292,7 @@ class TrackerDashboard(App):
                 yield SessionPanel(id="session-panel", classes="panel")
                 yield StatsPanel(id="stats-panel", classes="panel")
                 yield CompositionPanel(id="composition-panel", classes="panel")
+                yield DispatcherStationsPanel(id="dispatcher-stations-panel", classes="panel")
 
             with Vertical(id="middle-column"):
                 with Container(id="upcoming-stations-panel", classes="panel"):
@@ -485,6 +500,25 @@ Player is offline or not in a train/station."""
             composition_panel.composition_text = comp_text
         else:
             composition_panel.composition_text = "No composition data available"
+
+        # Update dispatcher stations panel
+        dispatcher_panel = self.query_one("#dispatcher-stations-panel", DispatcherStationsPanel)
+        if stats.get("stations_by_name"):
+            # Sort by time spent
+            sorted_stations = sorted(
+                stats["stations_by_name"].items(), key=lambda x: x[1], reverse=True
+            )
+
+            dispatcher_text = "📍 TOP DISPATCHER STATIONS\n\n"
+            for i, (station, time_seconds) in enumerate(sorted_stations[:8], 1):
+                time_str = format_duration(time_seconds)
+                # Truncate long station names
+                station_display = station[:24] if len(station) <= 24 else station[:21] + "..."
+                dispatcher_text += f"{i}. {station_display:<24} {time_str:>8}\n"
+
+            dispatcher_panel.stations_text = dispatcher_text
+        else:
+            dispatcher_panel.stations_text = "No dispatcher data yet"
 
         # Update upcoming stations panel with delay info
         upcoming_panel = self.query_one(UpcomingStationsPanel)
