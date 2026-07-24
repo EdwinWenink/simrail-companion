@@ -9,7 +9,7 @@ def format_vehicle_info(session: dict) -> str:
     if session.get("total_weight"):
         vehicle_info += f" ({session['total_weight']:.0f}t)"
     if session.get("total_length"):
-        vehicle_info += f" • {session['total_length']:.0f}m"
+        vehicle_info += f" • {session['total_length']:.1f}m"
     return vehicle_info
 
 
@@ -17,12 +17,12 @@ def format_duration(seconds: float) -> str:
     """Format seconds into human-readable duration."""
     if seconds < 60:
         return f"{int(seconds)}s"
-    elif seconds < 3600:
+    if seconds < 3600:
         return f"{int(seconds / 60)}m {int(seconds % 60)}s"
-    else:
-        hours = int(seconds / 3600)
-        minutes = int((seconds % 3600) / 60)
-        return f"{hours}h {minutes}m"
+
+    hours = int(seconds / 3600)
+    minutes = int((seconds % 3600) / 60)
+    return f"{hours}h {minutes}m"
 
 
 def format_datetime(dt_str: str) -> str:
@@ -40,8 +40,8 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
 
     # Get Steam stats
     latest_steam = db.get_latest_steam_stats(steam_id)
-    first_steam = db.get_steam_stats_history(steam_id, limit=10000)
-    first_steam = first_steam[-1] if first_steam else None
+    steam_history = db.get_steam_stats_history(steam_id, limit=2)
+    previous_steam = steam_history[1] if len(steam_history) > 1 else None
 
     # Get overall stats
     stats = db.get_stats(steam_id)
@@ -61,19 +61,19 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
             f"Last Synced:             {format_datetime(latest_steam['recorded_at'])}"
         )
 
-        if first_steam and first_steam["id"] != latest_steam["id"]:
+        if previous_steam and previous_steam["id"] != latest_steam["id"]:
             distance_gain = (
                 latest_steam["total_distance_meters"]
-                - first_steam["total_distance_meters"]
+                - previous_steam["total_distance_meters"]
             )
-            score_gain = latest_steam["total_score"] - first_steam["total_score"]
+            score_gain = latest_steam["total_score"] - previous_steam["total_score"]
             time_gain = (
                 latest_steam["total_dispatcher_time_minutes"]
-                - first_steam["total_dispatcher_time_minutes"]
+                - previous_steam["total_dispatcher_time_minutes"]
             )
 
             print(
-                f"\nGain since first sync ({format_datetime(first_steam['recorded_at'])}):"
+                f"\nGain since previous sync ({format_datetime(previous_steam['recorded_at'])}):"
             )
             print(f"  Distance: +{distance_gain:,} m ({distance_gain / 1000:.2f} km)")
             print(f"  Score: +{score_gain:,}")
@@ -266,7 +266,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
     all_sessions.sort(key=lambda x: x["time"], reverse=True)
 
     for item in all_sessions[:10]:
-        dt = datetime.fromisoformat(item["time"])
+        dt = datetime.fromisoformat(item["time"]).replace(tzinfo=timezone.utc)
         time_ago = datetime.now(timezone.utc) - dt
 
         if time_ago < timedelta(hours=1):

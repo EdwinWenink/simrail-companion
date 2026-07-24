@@ -8,6 +8,10 @@ import argparse
 from player_tracker.database import TrackerDatabase
 from player_tracker.summary import print_summary, print_active_sessions
 
+# Configure UTF-8 output for Windows console
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+
 
 def main():
     parser = argparse.ArgumentParser(description="Display tracked player data summary")
