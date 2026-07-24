@@ -92,7 +92,32 @@ simrail-companion/
 This is because the tracker needs to compare your Steam stats before and after the session to calculate the distance driven and points scored.
 If you are playing a long session and your game crashes, you similarly lose points because SimRail only updates steam if the session is closed normally.
 
-If you run the main script, everything is automatically tracked for your session and reported back to you.
+### 🎨 TUI Dashboard (Recommended)
+
+Run the interactive terminal dashboard for real-time tracking with a beautiful interface:
+
+```bash
+uv run tui_tracker.py
+```
+
+**Features:**
+- 🚂 Live session panel with current train/station info
+- 📊 Real-time statistics (distance, points, time)
+- 🧩 Vehicle composition viewer (locomotives, EMUs, wagons, weights)
+- 🚉 Upcoming stations with delay information (next 5 stops)
+- ⏱️ Real-time delay tracking (🔴 delayed, 🟢 early, ⚪ on time)
+- 👤 Dispatcher status (human/AI) for next station
+- 📍 Passed station history
+- 📜 Recent session history
+- 📋 Live event log (session transitions, stats, API events)
+- Auto-refresh every 5 seconds
+- Keyboard shortcuts: `R` to refresh, `Q` to quit
+
+See [TUI_GUIDE.md](docs/TUI_GUIDE.md) for full documentation and [TUI_LAYOUT.txt](docs/TUI_LAYOUT.txt) for a visual preview.
+
+### 🖥️ CLI Tracker (Traditional)
+
+Run the traditional command-line tracker with detailed logging:
 
 ```bash
 uv run main.py  # Start the player tracker
@@ -101,6 +126,8 @@ uv run main.py  # Start the player tracker
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python main.py
 ```
+
+Best for debugging or running in the background with log redirection.
 
 
 ## Standalone scripts
