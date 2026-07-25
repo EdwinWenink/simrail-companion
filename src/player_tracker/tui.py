@@ -217,29 +217,6 @@ class PassedStationsPanel(VerticalScroll):
             )
 
 
-class EventLogPanel(VerticalScroll):
-    """Panel showing event log messages."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.log_lines: list[str] = []
-        self.log_static = Static("")
-
-    def compose(self) -> ComposeResult:
-        yield self.log_static
-
-    def add_log(self, message: str) -> None:
-        """Add a log message with timestamp."""
-        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
-        self.log_lines.append(f"[{timestamp}] {message}")
-        # Keep last 50 lines
-        if len(self.log_lines) > 50:
-            self.log_lines = self.log_lines[-50:]
-        self.log_static.update("\n".join(self.log_lines))
-        # Auto-scroll to bottom
-        self.scroll_end(animate=False)
-
-
 class TopTrainsPanel(VerticalScroll):
     """Panel showing top trains by time driven."""
 
@@ -330,17 +307,12 @@ class TrackerDashboard(App):
     }
 
     #left-column {
-        width: 35%;
+        width: 45%;
         height: 100%;
     }
 
     #middle-column {
-        width: 40%;
-        height: 100%;
-    }
-
-    #right-column {
-        width: 25%;
+        width: 55%;
         height: 100%;
     }
 
@@ -392,11 +364,6 @@ class TrackerDashboard(App):
 
     #sessions-panel {
         height: 25%;
-        background: $panel;
-    }
-
-    #event-log-panel {
-        height: 100%;
         background: $panel;
     }
 
@@ -468,14 +435,6 @@ class TrackerDashboard(App):
                     sessions_container.border_title = "📜 Recent Sessions"
                     yield SessionsPanel()
 
-            # RIGHT COLUMN: LIVE EVENTS - "What's Happening"
-            with (
-                Vertical(id="right-column"),
-                Container(id="event-log-panel", classes="panel") as log_container,
-            ):
-                log_container.border_title = "📋 Event Log"
-                yield EventLogPanel()
-
     async def on_mount(self) -> None:
         """Start tracking when app starts."""
         self.title = f"SimRail Tracker - {self.steam_id}"
@@ -485,9 +444,6 @@ class TrackerDashboard(App):
         self.tracker = PlayerTracker(steam_id=self.steam_id, db_path=self.db_path, poll_interval=10)
         self.db = TrackerDatabase(self.db_path)
 
-        # Set up logging to event panel
-        self._setup_event_logging()
-
         # Start tracker in background
         self.tracker_task = asyncio.create_task(self.tracker.start())
 
@@ -496,42 +452,6 @@ class TrackerDashboard(App):
 
         # Initial update
         await self.update_dashboard()
-        self.log_event("✅ Tracker started")
-
-    def _setup_event_logging(self) -> None:
-        """Set up logging handler to pipe tracker logs to event panel."""
-
-        class TUILogHandler(logging.Handler):
-            def __init__(self, dashboard: TrackerDashboard):
-                super().__init__()
-                self.dashboard = dashboard
-
-            def emit(self, record: logging.LogRecord) -> None:
-                try:
-                    msg = self.format(record)
-                    # Filter out verbose messages
-                    if "Checking activity" in msg or "still on train" in msg:
-                        return
-                    self.dashboard.log_event(msg)
-                except Exception as e:
-                    # Suppress - logging to UI is non-critical
-                    logging.getLogger(__name__).debug("Log emit error: %s", e)
-
-        # Add handler to player_tracker logger
-        tracker_logger = logging.getLogger("player_tracker")
-        tracker_logger.setLevel(logging.INFO)
-        handler = TUILogHandler(self)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        tracker_logger.addHandler(handler)
-
-    def log_event(self, message: str) -> None:
-        """Add an event to the log panel."""
-        try:
-            event_log = self.query_one(EventLogPanel)
-            event_log.add_log(message)
-        except Exception as e:
-            # Ignore if panel not ready yet
-            logging.getLogger(__name__).debug("Log event error: %s", e)
 
     async def update_dashboard_loop(self) -> None:
         """Continuously update dashboard."""
