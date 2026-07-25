@@ -482,7 +482,7 @@ class TrackerDashboard(App):
         self.sub_title = "Real-time Session Monitoring"
 
         # Initialize tracker and database
-        self.tracker = PlayerTracker(steam_id=self.steam_id, db_path=self.db_path, poll_interval=30)
+        self.tracker = PlayerTracker(steam_id=self.steam_id, db_path=self.db_path, poll_interval=10)
         self.db = TrackerDatabase(self.db_path)
 
         # Set up logging to event panel
