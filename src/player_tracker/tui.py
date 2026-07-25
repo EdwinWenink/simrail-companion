@@ -160,6 +160,15 @@ class CompositionPanel(VerticalScroll):
         self.composition_text = comp_text
 
 
+class SignalStatePanel(Static):
+    """Panel showing current signal state and speed limits."""
+
+    signal_text = reactive("No signal data")
+
+    def render(self) -> str:
+        return self.signal_text
+
+
 class DispatcherStationsPanel(Static):
     """Panel showing dispatcher station statistics."""
 
@@ -342,22 +351,27 @@ class TrackerDashboard(App):
     }
 
     #session-panel {
-        height: 20%;
+        height: 17%;
         background: $boost;
     }
 
+    #signal-panel {
+        height: 15%;
+        background: $panel;
+    }
+
     #composition-panel {
-        height: 25%;
+        height: 20%;
         background: $panel;
     }
 
     #upcoming-stations-panel {
-        height: 35%;
+        height: 30%;
         background: $panel;
     }
 
     #passed-stations-panel {
-        height: 20%;
+        height: 18%;
         background: $panel;
     }
 
@@ -417,6 +431,10 @@ class TrackerDashboard(App):
                 session_panel = SessionPanel(id="session-panel", classes="panel")
                 session_panel.border_title = "🚂 Current Session"
                 yield session_panel
+
+                signal_panel = SignalStatePanel(id="signal-panel", classes="panel")
+                signal_panel.border_title = "🚦 Signal & Speed"
+                yield signal_panel
 
                 composition_panel = CompositionPanel(id="composition-panel", classes="panel")
                 composition_panel.border_title = "🧩 Vehicle Composition"
@@ -532,6 +550,9 @@ class TrackerDashboard(App):
         if not self.tracker or not self.db:
             return
 
+        # Get current player activity from tracker (updated every poll)
+        player_activity = self.tracker.current_activity
+
         # Update session panel
         session_panel = self.query_one("#session-panel", SessionPanel)
         active_train = self.db.get_active_train_session(self.steam_id)
@@ -562,6 +583,70 @@ Elapsed: {format_duration(elapsed)}"""
             session_panel.session_info = session_text
         else:
             session_panel.session_info = """Player is offline or not in a train/station."""
+
+        # Update signal panel (train drivers only)
+        signal_panel = self.query_one("#signal-panel", SignalStatePanel)
+        if player_activity and player_activity.get("activity_type") == "train":
+            velocity = player_activity.get("velocity")
+            signal_in_front = player_activity.get("signal_in_front")
+            distance_to_signal = player_activity.get("distance_to_signal")
+            signal_speed_limit = player_activity.get("signal_speed_limit")
+
+            signal_text = ""
+
+            # Current speed
+            if velocity is not None:
+                signal_text += f"Speed: {velocity:.0f} km/h"
+                if signal_speed_limit is not None:
+                    # Speed compliance check
+                    if velocity > signal_speed_limit + 5:  # Allow 5 km/h tolerance
+                        signal_text += " ⚠️ OVERSPEEDING"
+                    elif velocity > signal_speed_limit:
+                        signal_text += " ⚠️"
+                signal_text += "\n"
+            else:
+                signal_text += "Speed: — km/h\n"
+
+            # Signal ahead
+            signal_text += "\n"
+            if signal_in_front:
+                # Determine signal color/type
+                signal_display = signal_in_front
+                signal_emoji = ""
+
+                # Map signal types to emojis (based on common SimRail signal names)
+                if "SBL" in signal_in_front.upper() or "1" in signal_in_front:
+                    signal_emoji = "🟢"  # Green signal
+                elif "2" in signal_in_front or "3" in signal_in_front:
+                    signal_emoji = "🟡"  # Yellow signal
+                elif "0" in signal_in_front or "STOP" in signal_in_front.upper():
+                    signal_emoji = "🔴"  # Red signal
+                else:
+                    signal_emoji = "🔵"  # Other signal
+
+                signal_text += f"Signal: {signal_emoji} {signal_display}\n"
+
+                # Distance to signal
+                if distance_to_signal is not None:
+                    # Format distance nicely
+                    if distance_to_signal >= 1000:
+                        dist_str = f"{distance_to_signal / 1000:.2f} km"
+                    else:
+                        dist_str = f"{distance_to_signal:.0f} m"
+
+                    signal_text += f"Distance: {dist_str}\n"
+
+                # Speed limit at signal
+                if signal_speed_limit is not None:
+                    signal_text += f"\nLimit: {signal_speed_limit:.0f} km/h"
+                else:
+                    signal_text += "\nLimit: No limit"
+            else:
+                signal_text += "Signal: No data"
+
+            signal_panel.signal_text = signal_text
+        else:
+            signal_panel.signal_text = "No active train\n"
 
         # Update stats panel
         stats_panel = self.query_one("#stats-panel", StatsPanel)
