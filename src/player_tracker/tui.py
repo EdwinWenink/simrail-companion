@@ -553,10 +553,29 @@ Elapsed: {format_duration(elapsed)}"""
             else:
                 signal_text += "Speed: — km/h\n"
 
-            # Signal ahead
+            # Signal ahead with aspect (color)
             signal_text += "\n"
             if signal_in_front:
-                signal_text += f"Next Signal: {signal_in_front}\n"
+                # Determine signal aspect based on speed limit
+                # Based on Polish railway signaling used in SimRail
+                if signal_speed_limit is None:
+                    aspect = "⚪ No data"
+                elif signal_speed_limit == 0:
+                    aspect = "🔴 Stop"
+                elif signal_speed_limit in [40, 60]:
+                    aspect = "🟠🟠 Slow"
+                elif signal_speed_limit in [80, 100]:
+                    aspect = "🟢🟠 Clear"
+                elif signal_speed_limit == 32767:
+                    # Special value meaning "no speed restriction"
+                    aspect = "🟢 vmax"
+                elif signal_speed_limit > 100:
+                    aspect = "🟢 vmax"
+                else:
+                    aspect = "⚪ Unknown"
+
+                signal_text += f"Signal: {aspect}\n"
+                signal_text += f"ID: {signal_in_front}\n"
 
                 # Distance to signal
                 if distance_to_signal is not None:
@@ -569,12 +588,14 @@ Elapsed: {format_duration(elapsed)}"""
                     signal_text += f"Distance: {dist_str}\n"
 
                 # Speed limit at signal
-                if signal_speed_limit is not None:
-                    signal_text += f"\nLimit: {signal_speed_limit:.0f} km/h"
+                if signal_speed_limit is None:
+                    signal_text += "\nLimit: Unknown"
+                elif signal_speed_limit == 32767:
+                    signal_text += "\nLimit: vmax"
                 else:
-                    signal_text += "\nLimit: No limit"
+                    signal_text += f"\nLimit: {signal_speed_limit:.0f} km/h"
             else:
-                signal_text += "Signal: No data"
+                signal_text += "No signal data"
 
             signal_panel.signal_text = signal_text
         else:
