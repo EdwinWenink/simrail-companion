@@ -307,12 +307,12 @@ class TrackerDashboard(App):
     }
 
     #left-column {
-        width: 45%;
+        width: 50%;
         height: 100%;
     }
 
     #middle-column {
-        width: 55%;
+        width: 50%;
         height: 100%;
     }
 
@@ -323,17 +323,17 @@ class TrackerDashboard(App):
     }
 
     #session-panel {
-        height: 17%;
+        height: 15%;
         background: $boost;
     }
 
     #signal-panel {
-        height: 15%;
+        height: 10%;
         background: $panel;
     }
 
     #composition-panel {
-        height: 20%;
+        height: 25%;
         background: $panel;
     }
 
@@ -343,27 +343,27 @@ class TrackerDashboard(App):
     }
 
     #passed-stations-panel {
-        height: 18%;
-        background: $panel;
-    }
-
-    #stats-panel {
         height: 20%;
         background: $panel;
     }
 
+    #stats-panel {
+        height: 10%;
+        background: $panel;
+    }
+
     #top-trains-panel {
-        height: 30%;
+        height: 40%;
         background: $panel;
     }
 
     #dispatcher-stations-panel {
-        height: 25%;
+        height: 30%;
         background: $panel;
     }
 
     #sessions-panel {
-        height: 25%;
+        height: 20%;
         background: $panel;
     }
 
