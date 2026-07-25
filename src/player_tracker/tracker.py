@@ -17,7 +17,7 @@ class PlayerTracker:
         self,
         steam_id: str,
         db_path: str = "player_tracker.db",
-        poll_interval: int = 30,
+        poll_interval: int = 10,
     ):
         self.steam_id = steam_id
         self.poll_interval = poll_interval

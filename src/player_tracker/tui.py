@@ -575,8 +575,34 @@ Elapsed: {format_duration(elapsed)}"""
             joined = datetime.fromisoformat(active_station["joined_at"])
             elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
 
+            # Fetch difficulty level from API
+            difficulty_text = ""
+            try:
+                stations = await self.tracker.simrail_client.get_stations(
+                    active_station["server_code"]
+                )
+                for station in stations:
+                    if station["Name"] == active_station["station_name"]:
+                        difficulty = station.get("DifficultyLevel", 0)
+                        # Format difficulty with visual indicator
+                        if difficulty == 1:
+                            difficulty_text = "\nDifficulty: ⭐ Easy"
+                        elif difficulty == 2:
+                            difficulty_text = "\nDifficulty: ⭐⭐ Medium"
+                        elif difficulty == 3:
+                            difficulty_text = "\nDifficulty: ⭐⭐⭐ Hard"
+                        elif difficulty == 4:
+                            difficulty_text = "\nDifficulty: ⭐⭐⭐⭐ Expert"
+                        elif difficulty == 5:
+                            difficulty_text = "\nDifficulty: ⭐⭐⭐⭐⭐ Master"
+                        else:
+                            difficulty_text = f"\nDifficulty: Level {difficulty}"
+                        break
+            except Exception as e:
+                logging.getLogger(__name__).debug("Could not fetch station difficulty: %s", e)
+
             session_text = f"""Station: {active_station["station_name"]} ({active_station["station_prefix"]})
-Server: {active_station["server_name"]}
+Server: {active_station["server_name"]}{difficulty_text}
 
 Elapsed: {format_duration(elapsed)}"""
 
@@ -610,21 +636,7 @@ Elapsed: {format_duration(elapsed)}"""
             # Signal ahead
             signal_text += "\n"
             if signal_in_front:
-                # Determine signal color/type
-                signal_display = signal_in_front
-                signal_emoji = ""
-
-                # Map signal types to emojis (based on common SimRail signal names)
-                if "SBL" in signal_in_front.upper() or "1" in signal_in_front:
-                    signal_emoji = "🟢"  # Green signal
-                elif "2" in signal_in_front or "3" in signal_in_front:
-                    signal_emoji = "🟡"  # Yellow signal
-                elif "0" in signal_in_front or "STOP" in signal_in_front.upper():
-                    signal_emoji = "🔴"  # Red signal
-                else:
-                    signal_emoji = "🔵"  # Other signal
-
-                signal_text += f"Signal: {signal_emoji} {signal_display}\n"
+                signal_text += f"Next Signal: {signal_in_front}\n"
 
                 # Distance to signal
                 if distance_to_signal is not None:
