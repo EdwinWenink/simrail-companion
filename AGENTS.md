@@ -39,6 +39,9 @@ uv run scripts/sync_steam.py <steam_id>
 
 # Show delay information
 uv run scripts/show_delays.py <server_code> <train_number>
+
+# Sync dispatch stations to database
+uv run scripts/sync_dispatch_stations.py
 ```
 
 ### Testing
@@ -167,7 +170,8 @@ The codebase uses a `src/` layout with four main packages:
 - Vehicle composition: vehicle_summary, traction_type, locomotive_names, num_locomotives, num_wagons, total_vehicles, total_length, total_weight, composition_json
 
 **station_sessions** table:
-- Dispatcher sessions: steam_id, station_name, station_prefix, timestamps
+- Dispatcher sessions: steam_id, station_name, station_prefix, point_id, timestamps
+- `point_id` links to `dispatch_stations` table for reliable station identification
 
 **train_station_passages** table:
 - Stations passed during train sessions with stop_type (PASSENGER, TECHNICAL, NONE)

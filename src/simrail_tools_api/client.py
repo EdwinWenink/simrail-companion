@@ -301,5 +301,67 @@ class SimRailToolsClient:
             )
             return None
 
+    async def fetch_all_dispatch_stations(self, limit_per_page: int = 250) -> list[dict]:
+        """Fetch all dispatch stations from the API, handling pagination.
+
+        Filters by INT1 server to avoid duplicates across servers.
+
+        Args:
+            limit_per_page: Number of items to fetch per request (default: 250)
+
+        Returns:
+            List of dispatch station dictionaries with fields:
+            - id: station instance ID
+            - name: station name
+            - pointId: point identifier
+            - lastUpdated: ISO timestamp
+            - position: {latitude, longitude}
+            - difficulty: int
+            - serverId: server UUID
+        """
+        # INT1 server ID
+        int1_server_id = "f84b094b-ff1e-5bc2-b862-af32f3a3dae7"
+
+        all_stations = []
+        page = 0
+        more_pages = True
+
+        while more_pages:
+            try:
+                # Use page parameter for pagination and filter by INT1 serverId
+                if page == 0:
+                    # First page - no page parameter needed
+                    data = await self._fetch(
+                        f"sit-dispatch-posts/v2/find?serverId={int1_server_id}&limit={limit_per_page}"
+                    )
+                else:
+                    data = await self._fetch(
+                        f"sit-dispatch-posts/v2/find?serverId={int1_server_id}&limit={limit_per_page}&page={page}"
+                    )
+
+                items = data.get("items", [])
+                all_stations.extend(items)
+
+                more_pages = data.get("morePages", False)
+                page += 1
+
+                logger.debug(
+                    "Fetched page %s with %s stations (morePages=%s)",
+                    page,
+                    len(items),
+                    more_pages,
+                )
+
+                # Stop if no items returned
+                if not items:
+                    break
+
+            except Exception as e:
+                logger.error("Error fetching dispatch stations page %s: %s", page, e)
+                break
+
+        logger.info("Fetched %s total dispatch stations for INT1", len(all_stations))
+        return all_stations
+
     async def close(self):
         pass
