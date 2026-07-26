@@ -167,7 +167,9 @@ The codebase uses a `src/` layout with four main packages:
 **train_sessions** table:
 - Basic: steam_id, server, train_number, train_name, route, timestamps
 - Performance: distance_meters, points, baseline_distance, baseline_points
-- Vehicle composition: vehicle_summary, traction_type, locomotive_names, num_locomotives, num_wagons, total_vehicles, total_length, total_weight, composition_json
+- Vehicle composition: vehicle_summary, traction_type, transport_type, locomotive_names, num_locomotives, num_wagons, total_vehicles, total_length, total_weight, composition_json
+- `composition_json` includes transport details (category, line, label, max_speed, type) from journey API
+- `transport_type` extracted from journey transport information (e.g., "PASSENGER", "FREIGHT")
 
 **station_sessions** table:
 - Dispatcher sessions: steam_id, station_name, station_prefix, point_id, timestamps

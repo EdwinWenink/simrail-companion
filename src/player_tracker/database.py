@@ -32,6 +32,7 @@ class TrackerDatabase:
                     baseline_points INTEGER,
                     vehicle_summary TEXT,
                     traction_type TEXT,
+                    transport_type TEXT,
                     locomotive_names TEXT,
                     num_locomotives INTEGER,
                     num_wagons INTEGER,
@@ -218,6 +219,13 @@ class TrackerDatabase:
                 except Exception as e:
                     logger.warning("Could not drop vehicle column: %s", e)
 
+            # Migration for train_sessions: add transport_type if missing
+            if "transport_type" not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN transport_type TEXT
+                """)
+                migration_needed = True
+
             # Migration for station_sessions: add point_id if missing
             cursor = conn.execute("PRAGMA table_info(station_sessions)")
             station_columns = [row[1] for row in cursor.fetchall()]
@@ -267,6 +275,7 @@ class TrackerDatabase:
         # Extract composition data if provided
         vehicle_summary = vehicle
         traction_type = None
+        transport_type = None
         locomotive_names = None
         num_locomotives = None
         num_wagons = None
@@ -277,6 +286,11 @@ class TrackerDatabase:
 
         if vehicle_composition:
             traction_type = vehicle_composition.get("traction_type")
+            # Extract transport type from transport info if available
+            transport_info = vehicle_composition.get("transport")
+            if transport_info:
+                transport_type = transport_info.get("type")
+
             locomotives = vehicle_composition.get("locomotives", [])
 
             if locomotives:
@@ -307,9 +321,9 @@ class TrackerDatabase:
                     id, steam_id, server_code, server_name, train_number,
                     train_name, start_station, end_station, vehicle_summary, joined_at,
                     baseline_distance, baseline_points,
-                    traction_type, locomotive_names, num_locomotives, num_wagons,
+                    traction_type, transport_type, locomotive_names, num_locomotives, num_wagons,
                     total_vehicles, total_length, total_weight, composition_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -325,6 +339,7 @@ class TrackerDatabase:
                     baseline_distance,
                     baseline_points,
                     traction_type,
+                    transport_type,
                     locomotive_names,
                     num_locomotives,
                     num_wagons,

@@ -259,9 +259,36 @@ class PlayerTracker:
         except Exception as e:
             logger.debug("Could not find journey ID: %s", e)
 
-        # Fetch detailed vehicle composition if we have a journey ID
+        # Fetch journey and vehicle composition if we have a journey ID
         composition = None
+        transport_info = None
         if journey_id:
+            # Fetch journey to get transport information
+            try:
+                logger.debug("Fetching journey details...")
+                journey = await self.simrail_tools_client.get_journey(journey_id)
+                if journey and journey.events:
+                    # Transport info is in the first event
+                    transport = journey.events[0].transport
+                    transport_info = {
+                        "category": transport.category,
+                        "category_external": transport.categoryExternal,
+                        "number": transport.number,
+                        "line": transport.line,
+                        "label": transport.label,
+                        "type": transport.type,
+                        "max_speed": transport.maxSpeed,
+                    }
+                    logger.debug(
+                        "✓ Transport: %s %s (max %d km/h)",
+                        transport.category,
+                        transport.number,
+                        transport.maxSpeed,
+                    )
+            except Exception as e:
+                logger.debug("Could not fetch journey details: %s", e)
+
+            # Fetch vehicle composition
             try:
                 logger.debug("Fetching vehicle composition...")
                 vehicles = await self.simrail_tools_client.get_vehicle_composition(journey_id)
@@ -283,6 +310,7 @@ class PlayerTracker:
                     # TODO make a Pydantic model for this structure for better validation and type safety
                     composition = {
                         "traction_type": traction_type,
+                        "transport": transport_info,
                         "locomotives": [
                             {
                                 "displayName": loc.displayName,

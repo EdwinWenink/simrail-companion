@@ -482,10 +482,36 @@ class TrackerDashboard(App):
             joined = datetime.fromisoformat(active_train["joined_at"])
             elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
 
+            # Extract transport info from composition_json if available
+            transport_info_text = ""
+            composition_json = active_train.get("composition_json")
+            if composition_json:
+                try:
+                    import json
+
+                    composition = json.loads(composition_json)
+                    transport = composition.get("transport")
+                    if transport:
+                        category = transport.get("category", "")
+                        line = transport.get("line")
+                        label = transport.get("label")
+                        max_speed = transport.get("max_speed")
+
+                        if category:
+                            transport_info_text += f"\nCategory: {category}"
+                        if line:
+                            transport_info_text += f"\nLine: {line}"
+                        if label:
+                            transport_info_text += f"\nLabel: {label}"
+                        if max_speed:
+                            transport_info_text += f"\nMax Speed: {max_speed} km/h"
+                except Exception as e:
+                    logging.getLogger(__name__).debug("Could not parse transport info: %s", e)
+
             session_text = f"""Train: {active_train["train_name"]} {active_train["train_number"]}
 Route: {active_train["start_station"]} → {active_train["end_station"]}
 Server: {active_train["server_name"]}
-Vehicle: {active_train.get("vehicle_summary", "Unknown")}
+Vehicle: {active_train.get("vehicle_summary", "Unknown")}{transport_info_text}
 
 Elapsed: {format_duration(elapsed)}"""
 
