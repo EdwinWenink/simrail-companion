@@ -96,3 +96,37 @@ class DelayInfo(BaseModel):
     status: DelayStatus
     time_type: RealtimeTimeType
     stop_type: StopType
+
+
+class BoardViaPoint(BaseModel):
+    """A via point (intermediate stop) in a board entry."""
+
+    pointId: str
+    pointName: str
+    cancelled: bool
+    additional: bool
+    passengerChange: bool
+
+
+class BoardPassengerStop(BaseModel):
+    """Platform and track information for a passenger stop."""
+
+    platform: int
+    track: int
+
+
+class BoardEntry(BaseModel):
+    """An entry in the arrivals or departures board."""
+
+    journeyId: str
+    eventId: str
+    cancelled: bool
+    additional: bool
+    scheduledTime: datetime
+    realtimeTime: datetime
+    realtimeTimeType: RealtimeTimeType
+    stopType: StopType
+    transport: JourneyTransport
+    via: list[BoardViaPoint] = []
+    scheduledPassengerStop: BoardPassengerStop | None = None
+    realtimePassengerStop: BoardPassengerStop | None = None

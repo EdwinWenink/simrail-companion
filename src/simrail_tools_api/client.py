@@ -3,7 +3,7 @@ import logging
 
 import aiohttp
 
-from .types import DelayInfo, Journey, JourneyEvent
+from .types import BoardEntry, DelayInfo, Journey, JourneyEvent
 from .vehicle_types import VehicleSequence
 
 logger = logging.getLogger(__name__)
@@ -362,6 +362,68 @@ class SimRailToolsClient:
 
         logger.info("Fetched %s total dispatch stations for INT1", len(all_stations))
         return all_stations
+
+    async def get_departures(
+        self,
+        server_id: str,
+        point_id: str,
+        time_start: str | None = None,
+        time_end: str | None = None,
+    ) -> list[BoardEntry]:
+        """Get departures board for a station.
+
+        Args:
+            server_id: Server UUID
+            point_id: Point (station) UUID
+            time_start: Optional ISO datetime for board start (default: current server time)
+            time_end: Optional ISO datetime for board end (default: 30 minutes from start)
+
+        Returns:
+            List of departure board entries
+        """
+        try:
+            params = f"serverId={server_id}&pointId={point_id}"
+            if time_start:
+                params += f"&timeStart={time_start}"
+            if time_end:
+                params += f"&timeEnd={time_end}"
+
+            data = await self._fetch(f"sit-boards/v2/departures?{params}")
+            return [BoardEntry(**entry) for entry in data]
+        except Exception as e:
+            logger.error("Error fetching departures: %s", e)
+            return []
+
+    async def get_arrivals(
+        self,
+        server_id: str,
+        point_id: str,
+        time_start: str | None = None,
+        time_end: str | None = None,
+    ) -> list[BoardEntry]:
+        """Get arrivals board for a station.
+
+        Args:
+            server_id: Server UUID
+            point_id: Point (station) UUID
+            time_start: Optional ISO datetime for board start (default: current server time)
+            time_end: Optional ISO datetime for board end (default: 30 minutes from start)
+
+        Returns:
+            List of arrival board entries
+        """
+        try:
+            params = f"serverId={server_id}&pointId={point_id}"
+            if time_start:
+                params += f"&timeStart={time_start}"
+            if time_end:
+                params += f"&timeEnd={time_end}"
+
+            data = await self._fetch(f"sit-boards/v2/arrivals?{params}")
+            return [BoardEntry(**entry) for entry in data]
+        except Exception as e:
+            logger.error("Error fetching arrivals: %s", e)
+            return []
 
     async def close(self):
         pass

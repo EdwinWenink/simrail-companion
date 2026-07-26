@@ -217,6 +217,23 @@ class PassedStationsPanel(VerticalScroll):
             )
 
 
+class NextStationBoardPanel(VerticalScroll):
+    """Panel showing arrivals/departures board for next station."""
+
+    board_text = reactive("No next station data")
+
+    def compose(self) -> ComposeResult:
+        yield Static(id="board-content")
+
+    def watch_board_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        try:
+            content = self.query_one("#board-content", Static)
+            content.update(new_text)
+        except Exception as e:
+            logging.getLogger(__name__).debug("Could not update board: %s", e)
+
+
 class TopTrainsPanel(VerticalScroll):
     """Panel showing top trains by time driven."""
 
@@ -323,26 +340,31 @@ class TrackerDashboard(App):
     }
 
     #session-panel {
-        height: 15%;
+        height: 12%;
         background: $boost;
     }
 
     #signal-panel {
-        height: 10%;
+        height: 8%;
         background: $panel;
     }
 
     #composition-panel {
-        height: 25%;
+        height: 20%;
         background: $panel;
     }
 
     #upcoming-stations-panel {
-        height: 30%;
+        height: 25%;
         background: $panel;
     }
 
     #passed-stations-panel {
+        height: 15%;
+        background: $panel;
+    }
+
+    #next-station-board-panel {
         height: 20%;
         background: $panel;
     }
@@ -414,6 +436,10 @@ class TrackerDashboard(App):
                 with Container(id="passed-stations-panel", classes="panel") as passed_container:
                     passed_container.border_title = "📍 Passed Stations"
                     yield PassedStationsPanel()
+
+                with Container(id="next-station-board-panel", classes="panel") as board_container:
+                    board_container.border_title = "🚉 Next Station Board"
+                    yield NextStationBoardPanel()
 
             # MIDDLE COLUMN: HISTORICAL STATS - "All-Time"
             with Vertical(id="middle-column"):
@@ -795,6 +821,101 @@ Elapsed: {format_duration(elapsed)}"""
                 )
                 stations = cursor.fetchall()
                 passed_panel.update_stations(stations)
+
+        # Update next station board panel
+        board_panel = self.query_one(NextStationBoardPanel)
+        if active_train and self.tracker.current_journey_id:
+            try:
+                # Get journey to find next station
+                journey = await self.tracker.simrail_tools_client.get_journey(
+                    self.tracker.current_journey_id
+                )
+                if journey and journey.events:
+                    # Find next station (first PREDICTION or SCHEDULE event)
+                    next_station_point_id = None
+                    next_station_name = None
+                    for event in journey.events:
+                        if event.realtimeTimeType in ("PREDICTION", "SCHEDULE"):
+                            next_station_point_id = event.stopPlace.id
+                            next_station_name = event.stopPlace.name
+                            break
+
+                    if next_station_point_id and next_station_name:
+                        # Fetch arrivals and departures
+                        server_id = active_train["server_code"]
+                        # Convert server code to ID if needed
+                        if not server_id.count("-") >= 4:
+                            server_id = (
+                                await self.tracker.simrail_tools_client.get_server_id_by_code(
+                                    server_id
+                                )
+                            )
+
+                        if server_id:
+                            departures = await self.tracker.simrail_tools_client.get_departures(
+                                server_id, next_station_point_id
+                            )
+                            arrivals = await self.tracker.simrail_tools_client.get_arrivals(
+                                server_id, next_station_point_id
+                            )
+
+                            # Format display
+                            board_text = f"Station: {next_station_name}\n\n"
+
+                            if departures:
+                                board_text += "🚂 Departures:\n"
+                                for dep in departures[:5]:
+                                    time_str = dep.realtimeTime.strftime("%H:%M")
+                                    delay_min = (
+                                        dep.realtimeTime - dep.scheduledTime
+                                    ).total_seconds() / 60
+                                    delay_indicator = ""
+                                    if abs(delay_min) > 1:
+                                        if delay_min > 0:
+                                            delay_indicator = f" +{delay_min:.0f}m"
+                                        else:
+                                            delay_indicator = f" {delay_min:.0f}m"
+
+                                    platform_info = ""
+                                    if dep.realtimePassengerStop:
+                                        platform_info = f" Pl.{dep.realtimePassengerStop.platform}"
+
+                                    board_text += f"{time_str}{delay_indicator} {dep.transport.category} {dep.transport.number}{platform_info}\n"
+
+                            board_text += "\n"
+
+                            if arrivals:
+                                board_text += "🚃 Arrivals:\n"
+                                for arr in arrivals[:5]:
+                                    time_str = arr.realtimeTime.strftime("%H:%M")
+                                    delay_min = (
+                                        arr.realtimeTime - arr.scheduledTime
+                                    ).total_seconds() / 60
+                                    delay_indicator = ""
+                                    if abs(delay_min) > 1:
+                                        if delay_min > 0:
+                                            delay_indicator = f" +{delay_min:.0f}m"
+                                        else:
+                                            delay_indicator = f" {delay_min:.0f}m"
+
+                                    platform_info = ""
+                                    if arr.realtimePassengerStop:
+                                        platform_info = f" Pl.{arr.realtimePassengerStop.platform}"
+
+                                    board_text += f"{time_str}{delay_indicator} {arr.transport.category} {arr.transport.number}{platform_info}\n"
+
+                            board_panel.board_text = board_text
+                        else:
+                            board_panel.board_text = "Could not resolve server ID"
+                    else:
+                        board_panel.board_text = "No upcoming stations in journey"
+                else:
+                    board_panel.board_text = "No journey data available"
+            except Exception as e:
+                logging.getLogger(__name__).debug("Could not fetch next station board: %s", e)
+                board_panel.board_text = "Error fetching board data"
+        else:
+            board_panel.board_text = "No active train or journey"
 
         # Update top trains panel
         top_trains_panel = self.query_one(TopTrainsPanel)

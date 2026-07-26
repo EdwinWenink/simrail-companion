@@ -81,6 +81,7 @@ A real-time terminal UI built with [Textual](https://textual.textualize.io/) tha
 
 **Right Column:**
 - **Recent Stations**: Last 10 station passages from current session with stop types
+- **Next Station Board**: Arrivals and departures at the next upcoming station
 - **Recent Sessions**: Last 10 completed train sessions with distance/points/duration
 
 **Features:**
@@ -120,6 +121,7 @@ The codebase uses a `src/` layout with four main packages:
 
 3. **`simrail_tools_api/`** - SimRail Tools API client
    - Provides journey details, timetables, vehicle composition
+   - Fetches arrivals/departures boards for stations
    - Used for delay tracking and displaying train consist
    - **Important**: Supports double-headed locomotives and coupled EMUs
 
