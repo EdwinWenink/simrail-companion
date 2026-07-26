@@ -744,3 +744,10 @@ class TrackerDatabase:
             )
             row = cursor.fetchone()
             return row["point_id"] if row else None
+
+    def is_dispatch_stations_empty(self) -> bool:
+        """Check if dispatch_stations table is empty."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM dispatch_stations")
+            count = cursor.fetchone()[0]
+            return count == 0
