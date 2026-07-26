@@ -50,6 +50,7 @@ class TrackerDatabase:
                     server_name TEXT NOT NULL,
                     station_name TEXT NOT NULL,
                     station_prefix TEXT NOT NULL,
+                    point_id TEXT,
                     joined_at TEXT NOT NULL,
                     left_at TEXT
                 )
@@ -217,6 +218,16 @@ class TrackerDatabase:
                 except Exception as e:
                     logger.warning("Could not drop vehicle column: %s", e)
 
+            # Migration for station_sessions: add point_id if missing
+            cursor = conn.execute("PRAGMA table_info(station_sessions)")
+            station_columns = [row[1] for row in cursor.fetchall()]
+
+            if "point_id" not in station_columns:
+                conn.execute("""
+                    ALTER TABLE station_sessions ADD COLUMN point_id TEXT
+                """)
+                migration_needed = True
+
             # Single commit for all migrations
             if migration_needed:
                 conn.commit()
@@ -377,6 +388,7 @@ class TrackerDatabase:
         server_name: str,
         station_name: str,
         station_prefix: str,
+        point_id: str | None = None,
     ) -> str:
         session_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -386,8 +398,8 @@ class TrackerDatabase:
                 """
                 INSERT INTO station_sessions (
                     id, steam_id, server_code, server_name, station_name,
-                    station_prefix, joined_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    station_prefix, point_id, joined_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -396,6 +408,7 @@ class TrackerDatabase:
                     server_name,
                     station_name,
                     station_prefix,
+                    point_id,
                     now,
                 ),
             )
@@ -713,3 +726,21 @@ class TrackerDatabase:
                 (point_id,),
             )
             return [dict(row) for row in cursor.fetchall()]
+
+    def get_point_id_by_station_name(self, station_name: str) -> str | None:
+        """Look up point_id for a station by name.
+
+        Returns the point_id from the first matching station, or None if not found.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT point_id FROM dispatch_stations
+                WHERE name = ?
+                LIMIT 1
+                """,
+                (station_name,),
+            )
+            row = cursor.fetchone()
+            return row["point_id"] if row else None

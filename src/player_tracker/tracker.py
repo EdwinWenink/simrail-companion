@@ -184,6 +184,9 @@ class PlayerTracker:
             )
             self.db.end_station_session(active_session["id"])
 
+        # Look up point_id from dispatch_stations table
+        point_id = self.db.get_point_id_by_station_name(activity["station_name"])
+
         # Start new station session
         session_id = self.db.create_station_session(
             steam_id=self.steam_id,
@@ -191,6 +194,7 @@ class PlayerTracker:
             server_name=activity["server_name"],
             station_name=activity["station_name"],
             station_prefix=activity["station_prefix"],
+            point_id=point_id,
         )
         self.current_station_session_id = session_id
         logger.info(
