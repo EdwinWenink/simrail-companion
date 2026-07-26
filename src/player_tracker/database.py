@@ -107,6 +107,27 @@ class TrackerDatabase:
                 ON train_station_passages(train_session_id, station_name)
             """)
 
+            # Dispatch stations table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS dispatch_stations (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    point_id TEXT NOT NULL,
+                    last_updated TEXT NOT NULL,
+                    position_lat REAL NOT NULL,
+                    position_lon REAL NOT NULL,
+                    difficulty INTEGER NOT NULL
+                )
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_dispatch_stations_name ON dispatch_stations(name)
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_dispatch_stations_point_id ON dispatch_stations(point_id)
+            """)
+
             conn.commit()
 
             # Migration: Add columns if they don't exist (fetch schema once)
@@ -542,9 +563,7 @@ class TrackerDatabase:
                 """,
                 (steam_id,),
             )
-            stations_by_name = {
-                row[0]: int(row[1]) for row in station_time_cursor.fetchall()
-            }
+            stations_by_name = {row[0]: int(row[1]) for row in station_time_cursor.fetchall()}
 
             # Station passages during train sessions
             passages_cursor = conn.execute(
@@ -634,5 +653,63 @@ class TrackerDatabase:
                 LIMIT ?
                 """,
                 (steam_id, limit),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def upsert_dispatch_station(
+        self,
+        station_id: str,
+        name: str,
+        point_id: str,
+        last_updated: str,
+        position_lat: float,
+        position_lon: float,
+        difficulty: int,
+    ):
+        """Insert or update a dispatch station."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO dispatch_stations (
+                    id, name, point_id, last_updated,
+                    position_lat, position_lon, difficulty
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    point_id = excluded.point_id,
+                    last_updated = excluded.last_updated,
+                    position_lat = excluded.position_lat,
+                    position_lon = excluded.position_lon,
+                    difficulty = excluded.difficulty
+                """,
+                (station_id, name, point_id, last_updated, position_lat, position_lon, difficulty),
+            )
+            conn.commit()
+
+    def get_dispatch_stations(self, limit: int = 100) -> list[dict]:
+        """Get all dispatch stations."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT * FROM dispatch_stations
+                ORDER BY name, difficulty
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_dispatch_station_by_point_id(self, point_id: str) -> list[dict]:
+        """Get all dispatch station instances for a given point_id (same station on different servers)."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT * FROM dispatch_stations
+                WHERE point_id = ?
+                ORDER BY last_updated DESC
+                """,
+                (point_id,),
             )
             return [dict(row) for row in cursor.fetchall()]

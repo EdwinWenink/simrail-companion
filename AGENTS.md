@@ -39,6 +39,9 @@ uv run scripts/sync_steam.py <steam_id>
 
 # Show delay information
 uv run scripts/show_delays.py <server_code> <train_number>
+
+# Sync dispatch stations to database
+uv run scripts/sync_dispatch_stations.py
 ```
 
 ### Testing
