@@ -6,9 +6,11 @@ import os
 import sys
 
 from dotenv import load_dotenv
-from player_tracker.tui import TrackerDashboard
 
+from player_tracker.database import TrackerDatabase
 from player_tracker.lock import TrackerLock
+from player_tracker.sync_stations import sync_dispatch_stations_if_empty
+from player_tracker.tui import TrackerDashboard
 
 # Configure UTF-8 output for Windows console
 if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
@@ -34,8 +36,16 @@ async def main() -> None:
         sys.exit(1)
 
     try:
+        db_path = "data/player_tracker.db"
+
+        # Sync dispatch stations if table is empty (first run)
+        db = TrackerDatabase(db_path)
+        synced = await sync_dispatch_stations_if_empty(db)
+        if synced:
+            print("✓ Dispatch stations synced successfully\n")
+
         # Run the TUI app
-        app = TrackerDashboard(steam_id=steam_id, db_path="data/player_tracker.db")
+        app = TrackerDashboard(steam_id=steam_id, db_path=db_path)
         await app.run_async()
     finally:
         # Always release the lock

@@ -2,20 +2,21 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime
+
 from dotenv import load_dotenv
+
 from player_tracker import PlayerTracker
-from player_tracker.summary import print_summary
+from player_tracker.database import TrackerDatabase
 from player_tracker.lock import TrackerLock
+from player_tracker.summary import print_summary
+from player_tracker.sync_stations import sync_dispatch_stations_if_empty
 
 # Configure UTF-8 output for Windows console
-if sys.platform == 'win32':
-    sys.stdout.reconfigure(encoding='utf-8')
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%H:%M:%S'
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"
 )
 
 
@@ -35,10 +36,16 @@ async def main():
         print(f"\n❌ {e}\n")
         return
 
+    db_path = "data/player_tracker.db"
+
+    # Sync dispatch stations if table is empty (first run)
+    db = TrackerDatabase(db_path)
+    await sync_dispatch_stations_if_empty(db)
+
     tracker = PlayerTracker(
         steam_id=steam_id,
-        db_path="data/player_tracker.db",
-        poll_interval=30  # Check every 30 seconds
+        db_path=db_path,
+        poll_interval=30,  # Check every 30 seconds
     )
 
     print("=" * 60)

@@ -50,6 +50,7 @@ class TrackerDatabase:
                     server_name TEXT NOT NULL,
                     station_name TEXT NOT NULL,
                     station_prefix TEXT NOT NULL,
+                    point_id TEXT,
                     joined_at TEXT NOT NULL,
                     left_at TEXT
                 )
@@ -105,6 +106,27 @@ class TrackerDatabase:
             conn.execute("""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_train_passages_unique
                 ON train_station_passages(train_session_id, station_name)
+            """)
+
+            # Dispatch stations table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS dispatch_stations (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    point_id TEXT NOT NULL,
+                    last_updated TEXT NOT NULL,
+                    position_lat REAL NOT NULL,
+                    position_lon REAL NOT NULL,
+                    difficulty INTEGER NOT NULL
+                )
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_dispatch_stations_name ON dispatch_stations(name)
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_dispatch_stations_point_id ON dispatch_stations(point_id)
             """)
 
             conn.commit()
@@ -195,6 +217,16 @@ class TrackerDatabase:
                     migration_needed = True
                 except Exception as e:
                     logger.warning("Could not drop vehicle column: %s", e)
+
+            # Migration for station_sessions: add point_id if missing
+            cursor = conn.execute("PRAGMA table_info(station_sessions)")
+            station_columns = [row[1] for row in cursor.fetchall()]
+
+            if "point_id" not in station_columns:
+                conn.execute("""
+                    ALTER TABLE station_sessions ADD COLUMN point_id TEXT
+                """)
+                migration_needed = True
 
             # Single commit for all migrations
             if migration_needed:
@@ -356,6 +388,7 @@ class TrackerDatabase:
         server_name: str,
         station_name: str,
         station_prefix: str,
+        point_id: str | None = None,
     ) -> str:
         session_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -365,8 +398,8 @@ class TrackerDatabase:
                 """
                 INSERT INTO station_sessions (
                     id, steam_id, server_code, server_name, station_name,
-                    station_prefix, joined_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    station_prefix, point_id, joined_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -375,6 +408,7 @@ class TrackerDatabase:
                     server_name,
                     station_name,
                     station_prefix,
+                    point_id,
                     now,
                 ),
             )
@@ -542,9 +576,7 @@ class TrackerDatabase:
                 """,
                 (steam_id,),
             )
-            stations_by_name = {
-                row[0]: int(row[1]) for row in station_time_cursor.fetchall()
-            }
+            stations_by_name = {row[0]: int(row[1]) for row in station_time_cursor.fetchall()}
 
             # Station passages during train sessions
             passages_cursor = conn.execute(
@@ -636,3 +668,86 @@ class TrackerDatabase:
                 (steam_id, limit),
             )
             return [dict(row) for row in cursor.fetchall()]
+
+    def upsert_dispatch_station(
+        self,
+        station_id: str,
+        name: str,
+        point_id: str,
+        last_updated: str,
+        position_lat: float,
+        position_lon: float,
+        difficulty: int,
+    ):
+        """Insert or update a dispatch station."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO dispatch_stations (
+                    id, name, point_id, last_updated,
+                    position_lat, position_lon, difficulty
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    point_id = excluded.point_id,
+                    last_updated = excluded.last_updated,
+                    position_lat = excluded.position_lat,
+                    position_lon = excluded.position_lon,
+                    difficulty = excluded.difficulty
+                """,
+                (station_id, name, point_id, last_updated, position_lat, position_lon, difficulty),
+            )
+            conn.commit()
+
+    def get_dispatch_stations(self, limit: int = 100) -> list[dict]:
+        """Get all dispatch stations."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT * FROM dispatch_stations
+                ORDER BY name, difficulty
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_dispatch_station_by_point_id(self, point_id: str) -> list[dict]:
+        """Get all dispatch station instances for a given point_id (same station on different servers)."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT * FROM dispatch_stations
+                WHERE point_id = ?
+                ORDER BY last_updated DESC
+                """,
+                (point_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_point_id_by_station_name(self, station_name: str) -> str | None:
+        """Look up point_id for a station by name.
+
+        Returns the point_id from the first matching station, or None if not found.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT point_id FROM dispatch_stations
+                WHERE name = ?
+                LIMIT 1
+                """,
+                (station_name,),
+            )
+            row = cursor.fetchone()
+            return row["point_id"] if row else None
+
+    def is_dispatch_stations_empty(self) -> bool:
+        """Check if dispatch_stations table is empty."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM dispatch_stations")
+            count = cursor.fetchone()[0]
+            return count == 0
