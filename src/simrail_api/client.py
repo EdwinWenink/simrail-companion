@@ -62,10 +62,8 @@ class SimRailClient:
                 controlled_by = train.get("TrainData", {}).get("ControlledBySteamID")
                 if controlled_by == steam_id:
                     train_data = train["TrainData"]
-                    # Speed limit: 32767 means no limit
+                    # Speed limit: keep raw value (32767 means no limit, will be handled by UI)
                     speed_limit = train_data.get("SignalInFrontSpeed")
-                    if speed_limit == 32767:
-                        speed_limit = None
 
                     return PlayerActivity(
                         steam_id=steam_id,

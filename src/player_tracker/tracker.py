@@ -17,7 +17,7 @@ class PlayerTracker:
         self,
         steam_id: str,
         db_path: str = "player_tracker.db",
-        poll_interval: int = 30,
+        poll_interval: int = 10,
     ):
         self.steam_id = steam_id
         self.poll_interval = poll_interval
@@ -37,6 +37,9 @@ class PlayerTracker:
         self.recorded_stations: set[str] = (
             set()
         )  # Track which stations we've passed in current session
+
+        # Real-time activity data (updated each poll)
+        self.current_activity: PlayerActivity | None = None
 
     async def start(self):
         """Start tracking the player continuously."""
@@ -77,6 +80,9 @@ class PlayerTracker:
         """Check current player activity and update sessions."""
         logger.debug("Checking activity for player %s", self.steam_id)
         activity = await self.simrail_client.find_player(self.steam_id)
+
+        # Store current activity for UI access
+        self.current_activity = activity
 
         if not activity:
             # Player is offline, end any active sessions

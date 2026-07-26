@@ -160,6 +160,15 @@ class CompositionPanel(VerticalScroll):
         self.composition_text = comp_text
 
 
+class SignalStatePanel(Static):
+    """Panel showing current signal state and speed limits."""
+
+    signal_text = reactive("No signal data")
+
+    def render(self) -> str:
+        return self.signal_text
+
+
 class DispatcherStationsPanel(Static):
     """Panel showing dispatcher station statistics."""
 
@@ -206,29 +215,6 @@ class PassedStationsPanel(VerticalScroll):
                 station["stop_type"],
                 format_time(station["passed_at"]),
             )
-
-
-class EventLogPanel(VerticalScroll):
-    """Panel showing event log messages."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.log_lines: list[str] = []
-        self.log_static = Static("")
-
-    def compose(self) -> ComposeResult:
-        yield self.log_static
-
-    def add_log(self, message: str) -> None:
-        """Add a log message with timestamp."""
-        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
-        self.log_lines.append(f"[{timestamp}] {message}")
-        # Keep last 50 lines
-        if len(self.log_lines) > 50:
-            self.log_lines = self.log_lines[-50:]
-        self.log_static.update("\n".join(self.log_lines))
-        # Auto-scroll to bottom
-        self.scroll_end(animate=False)
 
 
 class TopTrainsPanel(VerticalScroll):
@@ -321,17 +307,12 @@ class TrackerDashboard(App):
     }
 
     #left-column {
-        width: 35%;
+        width: 50%;
         height: 100%;
     }
 
     #middle-column {
-        width: 40%;
-        height: 100%;
-    }
-
-    #right-column {
-        width: 25%;
+        width: 50%;
         height: 100%;
     }
 
@@ -342,8 +323,13 @@ class TrackerDashboard(App):
     }
 
     #session-panel {
-        height: 20%;
+        height: 15%;
         background: $boost;
+    }
+
+    #signal-panel {
+        height: 10%;
+        background: $panel;
     }
 
     #composition-panel {
@@ -352,7 +338,7 @@ class TrackerDashboard(App):
     }
 
     #upcoming-stations-panel {
-        height: 35%;
+        height: 30%;
         background: $panel;
     }
 
@@ -362,27 +348,22 @@ class TrackerDashboard(App):
     }
 
     #stats-panel {
-        height: 20%;
+        height: 10%;
         background: $panel;
     }
 
     #top-trains-panel {
-        height: 30%;
+        height: 40%;
         background: $panel;
     }
 
     #dispatcher-stations-panel {
-        height: 25%;
+        height: 30%;
         background: $panel;
     }
 
     #sessions-panel {
-        height: 25%;
-        background: $panel;
-    }
-
-    #event-log-panel {
-        height: 100%;
+        height: 20%;
         background: $panel;
     }
 
@@ -418,6 +399,10 @@ class TrackerDashboard(App):
                 session_panel.border_title = "🚂 Current Session"
                 yield session_panel
 
+                signal_panel = SignalStatePanel(id="signal-panel", classes="panel")
+                signal_panel.border_title = "🚦 Signal & Speed"
+                yield signal_panel
+
                 composition_panel = CompositionPanel(id="composition-panel", classes="panel")
                 composition_panel.border_title = "🧩 Vehicle Composition"
                 yield composition_panel
@@ -450,25 +435,14 @@ class TrackerDashboard(App):
                     sessions_container.border_title = "📜 Recent Sessions"
                     yield SessionsPanel()
 
-            # RIGHT COLUMN: LIVE EVENTS - "What's Happening"
-            with (
-                Vertical(id="right-column"),
-                Container(id="event-log-panel", classes="panel") as log_container,
-            ):
-                log_container.border_title = "📋 Event Log"
-                yield EventLogPanel()
-
     async def on_mount(self) -> None:
         """Start tracking when app starts."""
         self.title = f"SimRail Tracker - {self.steam_id}"
         self.sub_title = "Real-time Session Monitoring"
 
         # Initialize tracker and database
-        self.tracker = PlayerTracker(steam_id=self.steam_id, db_path=self.db_path, poll_interval=30)
+        self.tracker = PlayerTracker(steam_id=self.steam_id, db_path=self.db_path, poll_interval=10)
         self.db = TrackerDatabase(self.db_path)
-
-        # Set up logging to event panel
-        self._setup_event_logging()
 
         # Start tracker in background
         self.tracker_task = asyncio.create_task(self.tracker.start())
@@ -478,42 +452,6 @@ class TrackerDashboard(App):
 
         # Initial update
         await self.update_dashboard()
-        self.log_event("✅ Tracker started")
-
-    def _setup_event_logging(self) -> None:
-        """Set up logging handler to pipe tracker logs to event panel."""
-
-        class TUILogHandler(logging.Handler):
-            def __init__(self, dashboard: TrackerDashboard):
-                super().__init__()
-                self.dashboard = dashboard
-
-            def emit(self, record: logging.LogRecord) -> None:
-                try:
-                    msg = self.format(record)
-                    # Filter out verbose messages
-                    if "Checking activity" in msg or "still on train" in msg:
-                        return
-                    self.dashboard.log_event(msg)
-                except Exception as e:
-                    # Suppress - logging to UI is non-critical
-                    logging.getLogger(__name__).debug("Log emit error: %s", e)
-
-        # Add handler to player_tracker logger
-        tracker_logger = logging.getLogger("player_tracker")
-        tracker_logger.setLevel(logging.INFO)
-        handler = TUILogHandler(self)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        tracker_logger.addHandler(handler)
-
-    def log_event(self, message: str) -> None:
-        """Add an event to the log panel."""
-        try:
-            event_log = self.query_one(EventLogPanel)
-            event_log.add_log(message)
-        except Exception as e:
-            # Ignore if panel not ready yet
-            logging.getLogger(__name__).debug("Log event error: %s", e)
 
     async def update_dashboard_loop(self) -> None:
         """Continuously update dashboard."""
@@ -531,6 +469,9 @@ class TrackerDashboard(App):
         """Update all dashboard panels with current data."""
         if not self.tracker or not self.db:
             return
+
+        # Get current player activity from tracker (updated every poll)
+        player_activity = self.tracker.current_activity
 
         # Update session panel
         session_panel = self.query_one("#session-panel", SessionPanel)
@@ -554,14 +495,111 @@ Elapsed: {format_duration(elapsed)}"""
             joined = datetime.fromisoformat(active_station["joined_at"])
             elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
 
+            # Fetch difficulty level from API
+            difficulty_text = ""
+            try:
+                stations = await self.tracker.simrail_client.get_stations(
+                    active_station["server_code"]
+                )
+                for station in stations:
+                    if station["Name"] == active_station["station_name"]:
+                        difficulty = station.get("DifficultyLevel", 0)
+                        # Format difficulty with visual indicator
+                        if difficulty == 1:
+                            difficulty_text = "\nDifficulty: ⭐ Easy"
+                        elif difficulty == 2:
+                            difficulty_text = "\nDifficulty: ⭐⭐ Medium"
+                        elif difficulty == 3:
+                            difficulty_text = "\nDifficulty: ⭐⭐⭐ Hard"
+                        elif difficulty == 4:
+                            difficulty_text = "\nDifficulty: ⭐⭐⭐⭐ Expert"
+                        elif difficulty == 5:
+                            difficulty_text = "\nDifficulty: ⭐⭐⭐⭐⭐ Master"
+                        else:
+                            difficulty_text = f"\nDifficulty: Level {difficulty}"
+                        break
+            except Exception as e:
+                logging.getLogger(__name__).debug("Could not fetch station difficulty: %s", e)
+
             session_text = f"""Station: {active_station["station_name"]} ({active_station["station_prefix"]})
-Server: {active_station["server_name"]}
+Server: {active_station["server_name"]}{difficulty_text}
 
 Elapsed: {format_duration(elapsed)}"""
 
             session_panel.session_info = session_text
         else:
             session_panel.session_info = """Player is offline or not in a train/station."""
+
+        # Update signal panel (train drivers only)
+        signal_panel = self.query_one("#signal-panel", SignalStatePanel)
+        if player_activity and player_activity.get("activity_type") == "train":
+            velocity = player_activity.get("velocity")
+            signal_in_front = player_activity.get("signal_in_front")
+            distance_to_signal = player_activity.get("distance_to_signal")
+            signal_speed_limit = player_activity.get("signal_speed_limit")
+
+            signal_text = ""
+
+            # Current speed
+            if velocity is not None:
+                signal_text += f"Speed: {velocity:.0f} km/h"
+                if signal_speed_limit is not None:
+                    # Speed compliance check
+                    if velocity > signal_speed_limit + 5:  # Allow 5 km/h tolerance
+                        signal_text += " ⚠️ OVERSPEEDING"
+                    elif velocity > signal_speed_limit:
+                        signal_text += " ⚠️"
+                signal_text += "\n"
+            else:
+                signal_text += "Speed: — km/h\n"
+
+            # Signal ahead with aspect (color)
+            signal_text += "\n"
+            if signal_in_front:
+                # Determine signal aspect based on speed limit
+                # Based on Polish railway signaling used in SimRail
+                if signal_speed_limit is None:
+                    aspect = "⚪ No data"
+                elif signal_speed_limit == 0:
+                    aspect = "🔴 Stop"
+                elif signal_speed_limit in [40, 60]:
+                    aspect = "🟠🟠 Slow"
+                elif signal_speed_limit in [80, 100]:
+                    aspect = "🟢🟠 Clear"
+                elif signal_speed_limit == 32767:
+                    # Special value meaning "no speed restriction"
+                    aspect = "🟢 vmax"
+                elif signal_speed_limit > 100:
+                    aspect = "🟢 vmax"
+                else:
+                    aspect = "⚪ Unknown"
+
+                signal_text += f"Signal: {aspect}\n"
+                signal_text += f"ID: {signal_in_front}\n"
+
+                # Distance to signal
+                if distance_to_signal is not None:
+                    # Format distance nicely
+                    if distance_to_signal >= 1000:
+                        dist_str = f"{distance_to_signal / 1000:.2f} km"
+                    else:
+                        dist_str = f"{distance_to_signal:.0f} m"
+
+                    signal_text += f"Distance: {dist_str}\n"
+
+                # Speed limit at signal
+                if signal_speed_limit is None:
+                    signal_text += "\nLimit: Unknown"
+                elif signal_speed_limit == 32767:
+                    signal_text += "\nLimit: vmax"
+                else:
+                    signal_text += f"\nLimit: {signal_speed_limit:.0f} km/h"
+            else:
+                signal_text += "No signal data"
+
+            signal_panel.signal_text = signal_text
+        else:
+            signal_panel.signal_text = "No active train\n"
 
         # Update stats panel
         stats_panel = self.query_one("#stats-panel", StatsPanel)
