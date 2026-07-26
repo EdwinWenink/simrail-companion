@@ -69,19 +69,13 @@ class VehicleSequence(BaseModel):
     def locomotives(self) -> list[Railcar]:
         """Get all locomotives in the composition (supports double-headed trains)."""
         return [
-            vehicle.railcar
-            for vehicle in self.vehicles
-            if vehicle.railcar.type == "LOCOMOTIVE"
+            vehicle.railcar for vehicle in self.vehicles if vehicle.railcar.type == "LOCOMOTIVE"
         ]
 
     @property
     def wagons(self) -> list[Railcar]:
         """Get all wagons in the composition."""
-        return [
-            vehicle.railcar
-            for vehicle in self.vehicles
-            if vehicle.railcar.type == "WAGON"
-        ]
+        return [vehicle.railcar for vehicle in self.vehicles if vehicle.railcar.type == "WAGON"]
 
     @property
     def emus(self) -> list[Railcar]:
@@ -109,6 +103,7 @@ class VehicleSequence(BaseModel):
             return "Empty vehicle composition"
 
         # Calculate statistics
+        # TODO do not compute here, make computed property
         num_vehicles = len(self.vehicles)
         total_railcar_weight = sum(v.railcar.weight for v in self.vehicles)
         total_load_weight = sum(v.loadWeight or 0 for v in self.vehicles)
@@ -124,18 +119,12 @@ class VehicleSequence(BaseModel):
                 lines.append("🚂 LOCOMOTIVE:")
                 loc = locomotives[0]
                 lines.append(f"   {loc.displayName} ({loc.typeIdentifier})")
-                lines.append(
-                    f"   {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h"
-                )
+                lines.append(f"   {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h")
             else:
-                lines.append(
-                    f"🚂🚂 LOCOMOTIVES (Double-Headed, {len(locomotives)} units):"
-                )
+                lines.append(f"🚂🚂 LOCOMOTIVES (Double-Headed, {len(locomotives)} units):")
                 for i, loc in enumerate(locomotives, 1):
                     lines.append(f"   {i}. {loc.displayName} ({loc.typeIdentifier})")
-                    if (
-                        i == 1
-                    ):  # Only show detailed specs for first loc to avoid clutter
+                    if i == 1:  # Only show detailed specs for first loc to avoid clutter
                         lines.append(
                             f"      {loc.producer} • {loc.productionYears} • {loc.maxSpeed} km/h"
                         )

@@ -176,6 +176,13 @@ The codebase uses a `src/` layout with four main packages:
 **steam_stats** table:
 - Historical Steam stats snapshots
 
+**dispatch_stations** table:
+- Reference data for dispatch stations from SimRail Tools API
+- Fields: id, name, point_id, last_updated, position_lat, position_lon, difficulty
+- Automatically populated on first run of TUI or CLI tracker
+- Can be manually synced with `uv run scripts/sync_dispatch_stations.py`
+- Used to look up `point_id` when creating station sessions
+
 ## Important Constraints
 
 1. **Steam API Limitations**:
