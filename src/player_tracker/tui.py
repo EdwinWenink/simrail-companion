@@ -530,6 +530,7 @@ class TrackerDashboard(App):
     async def _get_station_difficulty(self, server_code: str, station_name: str) -> str:
         """Fetch and format station difficulty level."""
         try:
+            assert self.tracker
             stations = await self.tracker.simrail_client.get_stations(server_code)
             for station in stations:
                 if station["Name"] == station_name:

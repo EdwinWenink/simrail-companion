@@ -21,9 +21,11 @@ class PlayerTracker:
         steam_id: str,
         db_path: str = "player_tracker.db",
         poll_interval: int = 10,
+        orphan_session_timeout_hours: int = 1,
     ):
         self.steam_id = steam_id
         self.poll_interval = poll_interval
+        self.orphan_session_timeout_hours = orphan_session_timeout_hours
         self.simrail_client = SimRailClient()
         self.steam_client = SteamClient()
         self.simrail_tools_client = SimRailToolsClient()
@@ -46,6 +48,18 @@ class PlayerTracker:
 
     async def start(self):
         """Start tracking the player continuously."""
+        # Clean up any orphaned sessions from previous interrupted runs
+        train_closed, station_closed = self.db.close_orphaned_sessions(
+            self.steam_id, max_age_hours=self.orphan_session_timeout_hours
+        )
+        if train_closed > 0 or station_closed > 0:
+            logger.info(
+                "Closed %d orphaned train session(s) and %d station session(s) older than %d hour(s)",
+                train_closed,
+                station_closed,
+                self.orphan_session_timeout_hours,
+            )
+
         # Sync Steam stats before starting
         await self.sync_steam_stats()
 

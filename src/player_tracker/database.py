@@ -367,6 +367,48 @@ class TrackerDatabase:
             )
             conn.commit()
 
+    def close_orphaned_sessions(self, steam_id: str, max_age_hours: int = 1) -> tuple[int, int]:
+        """Close train and station sessions older than max_age_hours with no left_at timestamp.
+
+        Returns:
+            Tuple of (closed_train_sessions, closed_station_sessions)
+        """
+        from datetime import timedelta
+
+        cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
+
+        with sqlite3.connect(self.db_path) as conn:
+            # Close orphaned train sessions
+            train_cursor = conn.execute(
+                """
+                UPDATE train_sessions
+                SET left_at = ?
+                WHERE steam_id = ?
+                  AND left_at IS NULL
+                  AND joined_at < ?
+                """,
+                (now, steam_id, cutoff_time),
+            )
+            train_closed = train_cursor.rowcount
+
+            # Close orphaned station sessions
+            station_cursor = conn.execute(
+                """
+                UPDATE station_sessions
+                SET left_at = ?
+                WHERE steam_id = ?
+                  AND left_at IS NULL
+                  AND joined_at < ?
+                """,
+                (now, steam_id, cutoff_time),
+            )
+            station_closed = station_cursor.rowcount
+
+            conn.commit()
+
+        return (train_closed, station_closed)
+
     def get_active_train_session(self, steam_id: str) -> dict | None:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
