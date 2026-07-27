@@ -1,12 +1,15 @@
 import asyncio
 import logging
 
+from pydantic import ValidationError
+
 from simrail_api import SimRailClient
 from simrail_api.types import PlayerActivity
 from simrail_steam import SteamClient
 from simrail_steam.client import SteamAPIError
 from simrail_tools_api import SimRailToolsClient
 
+from .composition_types import VehicleComposition
 from .database import TrackerDatabase
 
 logger = logging.getLogger(__name__)
@@ -305,57 +308,61 @@ class PlayerTracker:
                     # Count wagons (non-locomotive, non-EMU vehicles)
                     num_wagons = len(vehicles.wagons)
 
-                    # Build a structured representation of the vehicle composition
-                    # This will be stored at composition_json
-                    # TODO make a Pydantic model for this structure for better validation and type safety
-                    composition = {
-                        "traction_type": traction_type,
-                        "transport": transport_info,
-                        "locomotives": [
-                            {
-                                "displayName": loc.displayName,
-                                "typeIdentifier": loc.typeIdentifier,
-                            }
-                            for loc in vehicles.locomotives
-                        ],
-                        "emus": [
-                            {
-                                "displayName": emu.displayName,
-                                "typeIdentifier": emu.typeIdentifier,
-                            }
-                            for emu in vehicles.emus
-                        ],
-                        "vehicles": [
-                            {
-                                "indexInGroup": v.indexInGroup,
-                                "id": v.railcar.id,
-                                "displayName": v.railcar.displayName,
-                                "name": v.railcar.name,
-                                "type": v.railcar.type,
-                                "typeIdentifier": v.railcar.typeIdentifier,
-                                "designation": v.railcar.designation,
-                                "producer": v.railcar.producer,
-                                "productionYears": v.railcar.productionYears,
-                                "weight": v.railcar.weight,
-                                "length": v.railcar.length,
-                                "maxSpeed": v.railcar.maxSpeed,
-                                "loadWeight": v.loadWeight,
-                                "load": v.load,
-                            }
-                            for v in vehicles.vehicles
-                        ],
-                        "num_wagons": num_wagons,
-                        "total_vehicles": len(vehicles.vehicles),
-                        "total_length": sum(v.railcar.length for v in vehicles.vehicles),
-                        "total_weight": sum(
-                            v.railcar.weight + (v.loadWeight or 0) for v in vehicles.vehicles
-                        ),
-                    }
-                    logger.debug(
-                        "✓ Vehicle composition captured: %s locs, %s wagons",
-                        len(vehicles.locomotives),
-                        num_wagons,
-                    )
+                    # Build and validate vehicle composition using Pydantic model
+                    try:
+                        composition_model = VehicleComposition(
+                            traction_type=traction_type,
+                            transport=transport_info,
+                            locomotives=[
+                                {
+                                    "displayName": loc.displayName,
+                                    "typeIdentifier": loc.typeIdentifier,
+                                }
+                                for loc in vehicles.locomotives
+                            ],
+                            emus=[
+                                {
+                                    "displayName": emu.displayName,
+                                    "typeIdentifier": emu.typeIdentifier,
+                                }
+                                for emu in vehicles.emus
+                            ],
+                            vehicles=[
+                                {
+                                    "indexInGroup": v.indexInGroup,
+                                    "id": v.railcar.id,
+                                    "displayName": v.railcar.displayName,
+                                    "name": v.railcar.name,
+                                    "type": v.railcar.type,
+                                    "typeIdentifier": v.railcar.typeIdentifier,
+                                    "designation": v.railcar.designation,
+                                    "producer": v.railcar.producer,
+                                    "productionYears": v.railcar.productionYears,
+                                    "weight": v.railcar.weight,
+                                    "length": v.railcar.length,
+                                    "maxSpeed": v.railcar.maxSpeed,
+                                    "loadWeight": v.loadWeight,
+                                    "load": v.load,
+                                }
+                                for v in vehicles.vehicles
+                            ],
+                            num_wagons=num_wagons,
+                            total_vehicles=len(vehicles.vehicles),
+                            total_length=sum(v.railcar.length for v in vehicles.vehicles),
+                            total_weight=sum(
+                                v.railcar.weight + (v.loadWeight or 0) for v in vehicles.vehicles
+                            ),
+                        )
+                        # Convert validated model to dict for database storage
+                        composition = composition_model.model_dump()
+                        logger.debug(
+                            "✓ Vehicle composition captured and validated: %s locs, %s wagons",
+                            len(vehicles.locomotives),
+                            num_wagons,
+                        )
+                    except ValidationError as e:
+                        logger.error("Composition validation failed: %s", e)
+                        composition = None
             except Exception as e:
                 logger.debug("Could not fetch vehicle composition: %s", e)
 
@@ -373,7 +380,22 @@ class PlayerTracker:
             vehicle_composition=composition,
         )
         self.current_train_session_id = session_id
-        self.recorded_stations = set()  # Clear recorded stations for new session
+
+        # Initialize recorded_stations with all stations already passed (REAL time type)
+        # This prevents recording historical stations that were passed before we joined
+        self.recorded_stations = set()
+        if journey_id:
+            try:
+                journey = await self.simrail_tools_client.get_journey(journey_id)
+                if journey and journey.events:
+                    for event in journey.events:
+                        if event.realtimeTimeType == "REAL":
+                            self.recorded_stations.add(event.stopPlace.name)
+                    logger.debug(
+                        "Initialized with %s already-passed stations", len(self.recorded_stations)
+                    )
+            except Exception as e:
+                logger.debug("Could not initialize recorded stations: %s", e)
 
         # Log with improved vehicle info
         if composition and composition.get("locomotives"):

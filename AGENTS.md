@@ -128,9 +128,11 @@ The codebase uses a `src/` layout with four main packages:
 4. **`player_tracker/`** - Core session tracking
    - `tracker.py` - Main `PlayerTracker` class with polling loop
    - `database.py` - SQLite schema and queries
+   - `composition_types.py` - Pydantic models for vehicle composition validation
    - `summary.py` - Display formatting
    - `lock.py` - Single-instance PID lock to prevent concurrent trackers
    - `tui.py` - Real-time Textual TUI dashboard with live updates
+   - `sync_stations.py` - Helper to sync dispatch stations on first run
 
 ### Key Patterns
 

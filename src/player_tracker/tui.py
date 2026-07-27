@@ -1,10 +1,12 @@
 """Real-time TUI dashboard for player tracking using Textual."""
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, ClassVar
 
+from pydantic import ValidationError
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.reactive import reactive
@@ -16,6 +18,7 @@ from textual.widgets import (
 )
 
 from player_tracker import PlayerTracker
+from player_tracker.composition_types import VehicleComposition
 from player_tracker.database import TrackerDatabase
 
 # Suppress verbose logging in TUI mode
@@ -513,8 +516,6 @@ class TrackerDashboard(App):
             composition_json = active_train.get("composition_json")
             if composition_json:
                 try:
-                    import json
-
                     composition = json.loads(composition_json)
                     transport = composition.get("transport")
                     if transport:
@@ -627,7 +628,12 @@ Elapsed: {format_duration(elapsed)}"""
                     aspect = "⚪ Unknown"
 
                 signal_text += f"Signal: {aspect}\n"
-                signal_text += f"ID: {signal_in_front}\n"
+
+                # Signal ID
+                if signal_in_front:
+                    signal_text += f"ID: {signal_in_front}\n"
+                else:
+                    signal_text += "ID: —\n"
 
                 # Distance to signal
                 if distance_to_signal is not None:
@@ -636,16 +642,17 @@ Elapsed: {format_duration(elapsed)}"""
                         dist_str = f"{distance_to_signal / 1000:.2f} km"
                     else:
                         dist_str = f"{distance_to_signal:.0f} m"
-
                     signal_text += f"Distance: {dist_str}\n"
+                else:
+                    signal_text += "Distance: —\n"
 
                 # Speed limit at signal
                 if signal_speed_limit is None:
-                    signal_text += "\nLimit: Unknown"
+                    signal_text += "Limit: —"
                 elif signal_speed_limit == 32767:
-                    signal_text += "\nLimit: vmax"
+                    signal_text += "Limit: vmax"
                 else:
-                    signal_text += f"\nLimit: {signal_speed_limit:.0f} km/h"
+                    signal_text += f"Limit: {signal_speed_limit:.0f} km/h"
             else:
                 signal_text += "No signal data"
 
@@ -688,10 +695,14 @@ Elapsed: {format_duration(elapsed)}"""
         # Update composition panel
         composition_panel = self.query_one("#composition-panel", CompositionPanel)
         if active_train and active_train.get("composition_json"):
-            import json
-
-            comp = json.loads(active_train["composition_json"])
-            composition_panel.update_data(comp)
+            try:
+                comp_data = json.loads(active_train["composition_json"])
+                # Validate with Pydantic model
+                comp_model = VehicleComposition(**comp_data)
+                composition_panel.update_data(comp_model.model_dump())
+            except (json.JSONDecodeError, ValidationError) as e:
+                logging.getLogger(__name__).error("Invalid composition data: %s", e)
+                composition_panel.update_data(None)
         else:
             composition_panel.update_data(None)
 
@@ -831,10 +842,16 @@ Elapsed: {format_duration(elapsed)}"""
                     self.tracker.current_journey_id
                 )
                 if journey and journey.events:
-                    # Find next station (first PREDICTION or SCHEDULE event)
+                    # Find last REAL event (station we've already passed)
+                    last_real_index = -1
+                    for i, event in enumerate(journey.events):
+                        if event.realtimeTimeType == "REAL":
+                            last_real_index = i
+
+                    # Find next upcoming station (first PREDICTION/SCHEDULE after last REAL)
                     next_station_point_id = None
                     next_station_name = None
-                    for event in journey.events:
+                    for event in journey.events[last_real_index + 1 :]:
                         if event.realtimeTimeType in ("PREDICTION", "SCHEDULE"):
                             next_station_point_id = event.stopPlace.id
                             next_station_name = event.stopPlace.name

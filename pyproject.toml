@@ -9,6 +9,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "textual>=0.50.0",
+    "textual-dev>=1.8.0",
 ]
 
 [dependency-groups]
