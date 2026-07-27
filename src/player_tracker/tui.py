@@ -28,6 +28,9 @@ logging.getLogger("simrail_tools_api").setLevel(logging.WARNING)
 logging.getLogger("player_tracker").setLevel(logging.WARNING)
 
 
+logger = logging.getLogger(__name__)
+
+
 def format_duration(seconds: float | None) -> str:
     """Format duration in seconds to human readable string."""
     if seconds is None:
@@ -57,13 +60,21 @@ def format_time(iso_time: str | None) -> str:
         return "—"
 
 
-class SessionPanel(Static):
+class SessionPanel(VerticalScroll):
     """Panel showing current active session."""
 
     session_info = reactive("No active session")
 
-    def render(self) -> str:
-        return self.session_info
+    def compose(self) -> ComposeResult:
+        yield Static(id="session-content")
+
+    def watch_session_info(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        try:
+            content = self.query_one("#session-content", Static)
+            content.update(new_text)
+        except Exception as e:
+            logger.debug("Could not update session panel: %s", e)
 
 
 class StatsPanel(Static):
@@ -163,13 +174,21 @@ class CompositionPanel(VerticalScroll):
         self.composition_text = comp_text
 
 
-class SignalStatePanel(Static):
+class SignalStatePanel(VerticalScroll):
     """Panel showing current signal state and speed limits."""
 
     signal_text = reactive("No signal data")
 
-    def render(self) -> str:
-        return self.signal_text
+    def compose(self) -> ComposeResult:
+        yield Static(id="signal-content")
+
+    def watch_signal_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        try:
+            content = self.query_one("#signal-content", Static)
+            content.update(new_text)
+        except Exception as e:
+            logger.debug("Could not update signal panel: %s", e)
 
 
 class DispatcherStationsPanel(Static):
@@ -195,7 +214,7 @@ class UpcomingStationsPanel(VerticalScroll):
             content = self.query_one("#upcoming-content", Static)
             content.update(new_text)
         except Exception as e:
-            logging.getLogger(__name__).debug("Could not update upcoming stations: %s", e)
+            logger.debug("Could not update upcoming stations: %s", e)
 
 
 class PassedStationsPanel(VerticalScroll):
@@ -234,7 +253,7 @@ class NextStationBoardPanel(VerticalScroll):
             content = self.query_one("#board-content", Static)
             content.update(new_text)
         except Exception as e:
-            logging.getLogger(__name__).debug("Could not update board: %s", e)
+            logger.debug("Could not update board: %s", e)
 
 
 class TopTrainsPanel(VerticalScroll):
@@ -343,12 +362,12 @@ class TrackerDashboard(App):
     }
 
     #session-panel {
-        height: 12%;
+        height: 16%;
         background: $boost;
     }
 
     #signal-panel {
-        height: 8%;
+        height: 12%;
         background: $panel;
     }
 
@@ -358,7 +377,7 @@ class TrackerDashboard(App):
     }
 
     #upcoming-stations-panel {
-        height: 25%;
+        height: 20%;
         background: $panel;
     }
 
@@ -368,7 +387,7 @@ class TrackerDashboard(App):
     }
 
     #next-station-board-panel {
-        height: 20%;
+        height: 17%;
         background: $panel;
     }
 
@@ -492,7 +511,7 @@ class TrackerDashboard(App):
                 break
             except Exception as e:
                 # Log but continue - don't crash dashboard on data errors
-                logging.getLogger(__name__).debug("Update error: %s", e)
+                logger.debug("Update error: %s", e)
 
     def _get_transport_info_text(self, composition_json: str | None) -> str:
         """Extract transport info from composition JSON."""
@@ -506,8 +525,10 @@ class TrackerDashboard(App):
                 return ""
 
             info_parts = []
-            if category := transport.get("category"):
-                info_parts.append(f"Category: {category}")
+            if transport_type := transport.get("type"):
+                info_parts.append(f"Type: {transport_type}")
+            if category_ext := transport.get("category_external"):
+                info_parts.append(f"Category (external): {category_ext}")
             if line := transport.get("line"):
                 info_parts.append(f"Line: {line}")
             if label := transport.get("label"):
@@ -517,7 +538,7 @@ class TrackerDashboard(App):
 
             return "\n" + "\n".join(info_parts) if info_parts else ""
         except Exception as e:
-            logging.getLogger(__name__).debug("Could not parse transport info: %s", e)
+            logger.debug("Could not parse transport info: %s", e)
             return ""
 
     def _format_difficulty_text(self, difficulty: int) -> str:
@@ -538,7 +559,7 @@ class TrackerDashboard(App):
                         return self._format_difficulty_text(difficulty)
                     break
         except Exception as e:
-            logging.getLogger(__name__).debug("Could not fetch station difficulty: %s", e)
+            logger.debug("Could not fetch station difficulty: %s", e)
         return ""
 
     async def _update_session_panel(
@@ -682,7 +703,7 @@ Elapsed: {format_duration(elapsed)}"""
             comp_model = VehicleComposition(**comp_data)
             composition_panel.update_data(comp_model.model_dump())
         except (json.JSONDecodeError, ValidationError) as e:
-            logging.getLogger(__name__).error("Invalid composition data: %s", e)
+            logger.error("Invalid composition data: %s", e)
             composition_panel.update_data(None)
 
     def _update_dispatcher_panel(
@@ -716,7 +737,7 @@ Elapsed: {format_duration(elapsed)}"""
                         return " 👤"
                     return " 🤖"
         except Exception as e:
-            logging.getLogger(__name__).debug("Dispatcher check error: %s", e)
+            logger.debug("Dispatcher check error: %s", e)
         return ""
 
     async def _update_upcoming_stations_panel(
@@ -724,7 +745,7 @@ Elapsed: {format_duration(elapsed)}"""
     ) -> None:
         """Update the upcoming stations panel with delay info."""
         if not active_train or not self.tracker.current_journey_id:
-            logging.getLogger(__name__).debug(
+            logger.debug(
                 "No upcoming stations: active_train=%s, journey_id=%s",
                 bool(active_train),
                 self.tracker.current_journey_id[:16] if self.tracker.current_journey_id else None,
@@ -733,9 +754,7 @@ Elapsed: {format_duration(elapsed)}"""
             return
 
         try:
-            logging.getLogger(__name__).debug(
-                "Fetching delays for journey %s", self.tracker.current_journey_id[:16]
-            )
+            logger.debug("Fetching delays for journey %s", self.tracker.current_journey_id[:16])
             delays = await self.tracker.simrail_tools_client.get_journey_delays(
                 self.tracker.current_journey_id, upcoming_only=True
             )
@@ -745,7 +764,7 @@ Elapsed: {format_duration(elapsed)}"""
                 upcoming_panel.upcoming_text = "No upcoming stations"
                 return
 
-            lines = ["Next 5 Stations:\n"]
+            lines = []
             for i, delay in enumerate(upcoming_delays, 1):
                 scheduled = delay.scheduled_time.strftime("%H:%M")
                 realtime = delay.realtime_time.strftime("%H:%M")
@@ -783,7 +802,7 @@ Elapsed: {format_duration(elapsed)}"""
 
             upcoming_panel.upcoming_text = "\n\n".join(lines)
         except Exception as e:
-            logging.getLogger(__name__).exception("Error fetching upcoming stations")
+            logger.exception("Error fetching upcoming stations")
             upcoming_panel.upcoming_text = f"Could not fetch delay info:\n{e}"
 
     def _update_passed_stations_panel(
@@ -845,7 +864,7 @@ Elapsed: {format_duration(elapsed)}"""
                     return event.stopPlace.id, event.stopPlace.name
 
         except Exception as e:
-            logging.getLogger(__name__).debug("Error finding next station: %s", e)
+            logger.debug("Error finding next station: %s", e)
 
         return None, None
 
@@ -899,7 +918,7 @@ Elapsed: {format_duration(elapsed)}"""
             board_panel.board_text = board_text
 
         except Exception as e:
-            logging.getLogger(__name__).debug("Could not fetch next station board: %s", e)
+            logger.debug("Could not fetch next station board: %s", e)
             board_panel.board_text = "Error fetching board data"
 
     async def update_dashboard(self) -> None:
@@ -990,7 +1009,7 @@ Elapsed: {format_duration(elapsed)}"""
                 await self.tracker.close()
             except Exception as e:
                 # Log but don't fail shutdown
-                logging.getLogger(__name__).debug("Cleanup error: %s", e)
+                logger.debug("Cleanup error: %s", e)
 
         # Exit app
         self.exit()
