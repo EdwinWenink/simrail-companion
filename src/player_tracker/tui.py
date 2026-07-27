@@ -494,188 +494,165 @@ class TrackerDashboard(App):
                 # Log but continue - don't crash dashboard on data errors
                 logging.getLogger(__name__).debug("Update error: %s", e)
 
-    async def update_dashboard(self) -> None:
-        """Update all dashboard panels with current data."""
-        if not self.tracker or not self.db:
-            return
+    def _get_transport_info_text(self, composition_json: str | None) -> str:
+        """Extract transport info from composition JSON."""
+        if not composition_json:
+            return ""
 
-        # Get current player activity from tracker (updated every poll)
-        player_activity = self.tracker.current_activity
+        try:
+            composition = json.loads(composition_json)
+            transport = composition.get("transport")
+            if not transport:
+                return ""
 
-        # Update session panel
-        session_panel = self.query_one("#session-panel", SessionPanel)
-        active_train = self.db.get_active_train_session(self.steam_id)
-        active_station = self.db.get_active_station_session(self.steam_id)
+            info_parts = []
+            if category := transport.get("category"):
+                info_parts.append(f"Category: {category}")
+            if line := transport.get("line"):
+                info_parts.append(f"Line: {line}")
+            if label := transport.get("label"):
+                info_parts.append(f"Label: {label}")
+            if max_speed := transport.get("max_speed"):
+                info_parts.append(f"Max Speed: {max_speed} km/h")
 
+            return "\n" + "\n".join(info_parts) if info_parts else ""
+        except Exception as e:
+            logging.getLogger(__name__).debug("Could not parse transport info: %s", e)
+            return ""
+
+    def _format_difficulty_text(self, difficulty: int) -> str:
+        """Format difficulty level with visual indicator."""
+        stars = "⭐" * difficulty
+        levels = {1: "Easy", 2: "Medium", 3: "Hard", 4: "Expert", 5: "Master"}
+        label = levels.get(difficulty, f"Level {difficulty}")
+        return f"\nDifficulty: {stars} {label}"
+
+    async def _get_station_difficulty(self, server_code: str, station_name: str) -> str:
+        """Fetch and format station difficulty level."""
+        try:
+            stations = await self.tracker.simrail_client.get_stations(server_code)
+            for station in stations:
+                if station["Name"] == station_name:
+                    if difficulty := station.get("DifficultyLevel", 0):
+                        return self._format_difficulty_text(difficulty)
+                    break
+        except Exception as e:
+            logging.getLogger(__name__).debug("Could not fetch station difficulty: %s", e)
+        return ""
+
+    async def _update_session_panel(
+        self, session_panel: SessionPanel, active_train: dict | None, active_station: dict | None
+    ) -> None:
+        """Update the current session panel."""
         if active_train:
             joined = datetime.fromisoformat(active_train["joined_at"])
             elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
-
-            # Extract transport info from composition_json if available
-            transport_info_text = ""
-            composition_json = active_train.get("composition_json")
-            if composition_json:
-                try:
-                    composition = json.loads(composition_json)
-                    transport = composition.get("transport")
-                    if transport:
-                        category = transport.get("category", "")
-                        line = transport.get("line")
-                        label = transport.get("label")
-                        max_speed = transport.get("max_speed")
-
-                        if category:
-                            transport_info_text += f"\nCategory: {category}"
-                        if line:
-                            transport_info_text += f"\nLine: {line}"
-                        if label:
-                            transport_info_text += f"\nLabel: {label}"
-                        if max_speed:
-                            transport_info_text += f"\nMax Speed: {max_speed} km/h"
-                except Exception as e:
-                    logging.getLogger(__name__).debug("Could not parse transport info: %s", e)
+            transport_info = self._get_transport_info_text(active_train.get("composition_json"))
 
             session_text = f"""Train: {active_train["train_name"]} {active_train["train_number"]}
 Route: {active_train["start_station"]} → {active_train["end_station"]}
 Server: {active_train["server_name"]}
-Vehicle: {active_train.get("vehicle_summary", "Unknown")}{transport_info_text}
+Vehicle: {active_train.get("vehicle_summary", "Unknown")}{transport_info}
 
 Elapsed: {format_duration(elapsed)}"""
-
             session_panel.session_info = session_text
 
         elif active_station:
             joined = datetime.fromisoformat(active_station["joined_at"])
             elapsed = (datetime.now(timezone.utc) - joined).total_seconds()
-
-            # Fetch difficulty level from API
-            difficulty_text = ""
-            try:
-                stations = await self.tracker.simrail_client.get_stations(
-                    active_station["server_code"]
-                )
-                for station in stations:
-                    if station["Name"] == active_station["station_name"]:
-                        difficulty = station.get("DifficultyLevel", 0)
-                        # Format difficulty with visual indicator
-                        if difficulty == 1:
-                            difficulty_text = "\nDifficulty: ⭐ Easy"
-                        elif difficulty == 2:
-                            difficulty_text = "\nDifficulty: ⭐⭐ Medium"
-                        elif difficulty == 3:
-                            difficulty_text = "\nDifficulty: ⭐⭐⭐ Hard"
-                        elif difficulty == 4:
-                            difficulty_text = "\nDifficulty: ⭐⭐⭐⭐ Expert"
-                        elif difficulty == 5:
-                            difficulty_text = "\nDifficulty: ⭐⭐⭐⭐⭐ Master"
-                        else:
-                            difficulty_text = f"\nDifficulty: Level {difficulty}"
-                        break
-            except Exception as e:
-                logging.getLogger(__name__).debug("Could not fetch station difficulty: %s", e)
+            difficulty_text = await self._get_station_difficulty(
+                active_station["server_code"], active_station["station_name"]
+            )
 
             session_text = f"""Station: {active_station["station_name"]} ({active_station["station_prefix"]})
 Server: {active_station["server_name"]}{difficulty_text}
 
 Elapsed: {format_duration(elapsed)}"""
-
             session_panel.session_info = session_text
         else:
             session_panel.session_info = """Player is offline or not in a train/station."""
 
-        # Update signal panel (train drivers only)
-        signal_panel = self.query_one("#signal-panel", SignalStatePanel)
-        if player_activity and player_activity.get("activity_type") == "train":
-            velocity = player_activity.get("velocity")
-            signal_in_front = player_activity.get("signal_in_front")
-            distance_to_signal = player_activity.get("distance_to_signal")
-            signal_speed_limit = player_activity.get("signal_speed_limit")
+    def _get_signal_aspect(self, speed_limit: float | None) -> str:
+        """Determine signal aspect based on speed limit."""
+        if speed_limit is None:
+            return "⚪ No data"
+        if speed_limit == 0:
+            return "🔴 Stop"
+        if speed_limit in [40, 60]:
+            return "🟠🟠 Slow"
+        if speed_limit in [80, 100]:
+            return "🟢🟠 Clear"
+        if speed_limit >= 32767 or speed_limit > 100:
+            return "🟢 vmax"
+        return "⚪ Unknown"
 
-            signal_text = ""
+    def _format_signal_distance(self, distance: float | None) -> str:
+        """Format signal distance."""
+        if distance is None:
+            return "—"
+        if distance >= 1000:
+            return f"{distance / 1000:.2f} km"
+        return f"{distance:.0f} m"
 
-            # Current speed
-            if velocity is not None:
-                signal_text += f"Speed: {velocity:.0f} km/h"
-                if signal_speed_limit is not None:
-                    # Speed compliance check
-                    if velocity > signal_speed_limit + 5:  # Allow 5 km/h tolerance
-                        signal_text += " ⚠️ OVERSPEEDING"
-                    elif velocity > signal_speed_limit:
-                        signal_text += " ⚠️"
-                signal_text += "\n"
-            else:
-                signal_text += "Speed: — km/h\n"
+    def _format_signal_limit(self, speed_limit: float | None) -> str:
+        """Format signal speed limit."""
+        if speed_limit is None:
+            return "—"
+        if speed_limit == 32767:
+            return "vmax"
+        return f"{speed_limit:.0f} km/h"
 
-            # Signal ahead with aspect (color)
-            signal_text += "\n"
-            if signal_in_front:
-                # Determine signal aspect based on speed limit
-                # Based on Polish railway signaling used in SimRail
-                if signal_speed_limit is None:
-                    aspect = "⚪ No data"
-                elif signal_speed_limit == 0:
-                    aspect = "🔴 Stop"
-                elif signal_speed_limit in [40, 60]:
-                    aspect = "🟠🟠 Slow"
-                elif signal_speed_limit in [80, 100]:
-                    aspect = "🟢🟠 Clear"
-                elif signal_speed_limit == 32767:
-                    # Special value meaning "no speed restriction"
-                    aspect = "🟢 vmax"
-                elif signal_speed_limit > 100:
-                    aspect = "🟢 vmax"
-                else:
-                    aspect = "⚪ Unknown"
-
-                signal_text += f"Signal: {aspect}\n"
-
-                # Signal ID
-                if signal_in_front:
-                    signal_text += f"ID: {signal_in_front}\n"
-                else:
-                    signal_text += "ID: —\n"
-
-                # Distance to signal
-                if distance_to_signal is not None:
-                    # Format distance nicely
-                    if distance_to_signal >= 1000:
-                        dist_str = f"{distance_to_signal / 1000:.2f} km"
-                    else:
-                        dist_str = f"{distance_to_signal:.0f} m"
-                    signal_text += f"Distance: {dist_str}\n"
-                else:
-                    signal_text += "Distance: —\n"
-
-                # Speed limit at signal
-                if signal_speed_limit is None:
-                    signal_text += "Limit: —"
-                elif signal_speed_limit == 32767:
-                    signal_text += "Limit: vmax"
-                else:
-                    signal_text += f"Limit: {signal_speed_limit:.0f} km/h"
-            else:
-                signal_text += "No signal data"
-
-            signal_panel.signal_text = signal_text
-        else:
+    def _update_signal_panel(
+        self, signal_panel: SignalStatePanel, player_activity: dict | None
+    ) -> None:
+        """Update the signal state panel."""
+        if not player_activity or player_activity.get("activity_type") != "train":
             signal_panel.signal_text = "No active train\n"
+            return
 
-        # Update stats panel
-        stats_panel = self.query_one("#stats-panel", StatsPanel)
-        stats = self.db.get_stats(self.steam_id)
+        velocity = player_activity.get("velocity")
+        signal_in_front = player_activity.get("signal_in_front")
+        distance_to_signal = player_activity.get("distance_to_signal")
+        signal_speed_limit = player_activity.get("signal_speed_limit")
 
-        # Get Steam baseline stats for comparison
-        latest_steam = self.db.get_latest_steam_stats(self.steam_id)
+        signal_text = ""
 
+        # Current speed with compliance check
+        if velocity is not None:
+            signal_text += f"Speed: {velocity:.0f} km/h"
+            if signal_speed_limit is not None:
+                if velocity > signal_speed_limit + 5:
+                    signal_text += " ⚠️ OVERSPEEDING"
+                elif velocity > signal_speed_limit:
+                    signal_text += " ⚠️"
+            signal_text += "\n"
+        else:
+            signal_text += "Speed: — km/h\n"
+
+        signal_text += "\n"
+
+        if signal_in_front:
+            aspect = self._get_signal_aspect(signal_speed_limit)
+            signal_text += f"Signal: {aspect}\n"
+            signal_text += f"ID: {signal_in_front}\n"
+            signal_text += f"Distance: {self._format_signal_distance(distance_to_signal)}\n"
+            signal_text += f"Limit: {self._format_signal_limit(signal_speed_limit)}"
+        else:
+            signal_text += "No signal data"
+
+        signal_panel.signal_text = signal_text
+
+    def _update_stats_panel(
+        self, stats_panel: StatsPanel, stats: dict, latest_steam: dict | None
+    ) -> None:
+        """Update the lifetime statistics panel."""
         stats_text = ""
 
-        # Steam baseline (if available)
         if latest_steam:
             steam_distance_km = latest_steam["total_distance_meters"] / 1000
             steam_points = latest_steam["total_score"]
             stats_text += f"Steam Total: {steam_distance_km:,.1f} km, {steam_points:,} pts\n\n"
 
-        # Calculate coverage percentage first
         coverage_str = ""
         if latest_steam and latest_steam["total_distance_meters"] > 0:
             coverage = (
@@ -683,7 +660,6 @@ Elapsed: {format_duration(elapsed)}"""
             ) * 100
             coverage_str = f" ({coverage:.1f}% coverage)"
 
-        # Tracked stats
         stats_text += f"Train Sessions: {stats['train_sessions']}\n"
         stats_text += f"Tracked: {format_distance(stats['total_distance_meters'])}{coverage_str}\n"
         stats_text += f"Points: {stats['total_points']:,}\n"
@@ -692,247 +668,279 @@ Elapsed: {format_duration(elapsed)}"""
 
         stats_panel.stats_text = stats_text
 
-        # Update composition panel
-        composition_panel = self.query_one("#composition-panel", CompositionPanel)
-        if active_train and active_train.get("composition_json"):
-            try:
-                comp_data = json.loads(active_train["composition_json"])
-                # Validate with Pydantic model
-                comp_model = VehicleComposition(**comp_data)
-                composition_panel.update_data(comp_model.model_dump())
-            except (json.JSONDecodeError, ValidationError) as e:
-                logging.getLogger(__name__).error("Invalid composition data: %s", e)
-                composition_panel.update_data(None)
-        else:
+    def _update_composition_panel(
+        self, composition_panel: CompositionPanel, active_train: dict | None
+    ) -> None:
+        """Update the vehicle composition panel."""
+        if not active_train or not active_train.get("composition_json"):
+            composition_panel.update_data(None)
+            return
+
+        try:
+            comp_data = json.loads(active_train["composition_json"])
+            comp_model = VehicleComposition(**comp_data)
+            composition_panel.update_data(comp_model.model_dump())
+        except (json.JSONDecodeError, ValidationError) as e:
+            logging.getLogger(__name__).error("Invalid composition data: %s", e)
             composition_panel.update_data(None)
 
-        # Update dispatcher stations panel
-        dispatcher_panel = self.query_one("#dispatcher-stations-panel", DispatcherStationsPanel)
-        if stats.get("stations_by_name"):
-            # Sort by time spent
-            sorted_stations = sorted(
-                stats["stations_by_name"].items(), key=lambda x: x[1], reverse=True
-            )
-
-            dispatcher_text = ""
-            for i, (station, time_seconds) in enumerate(sorted_stations[:8], 1):
-                time_str = format_duration(time_seconds)
-                # Truncate long station names
-                station_display = station[:24] if len(station) <= 24 else station[:21] + "..."
-                dispatcher_text += f"{i}. {station_display:<24} {time_str:>8}\n"
-
-            dispatcher_panel.stations_text = dispatcher_text
-        else:
+    def _update_dispatcher_panel(
+        self, dispatcher_panel: DispatcherStationsPanel, stats: dict
+    ) -> None:
+        """Update the dispatcher stations panel."""
+        if not stats.get("stations_by_name"):
             dispatcher_panel.stations_text = "No dispatcher data yet"
+            return
 
-        # Update upcoming stations panel with delay info
-        upcoming_panel = self.query_one(UpcomingStationsPanel)
-        if active_train and self.tracker.current_journey_id:
-            try:
-                logging.getLogger(__name__).debug(
-                    "Fetching delays for journey %s", self.tracker.current_journey_id[:16]
-                )
-                # Get delays from SimRail Tools API (API filters to upcoming only)
-                delays = await self.tracker.simrail_tools_client.get_journey_delays(
-                    self.tracker.current_journey_id, upcoming_only=True
-                )
+        sorted_stations = sorted(
+            stats["stations_by_name"].items(), key=lambda x: x[1], reverse=True
+        )
 
-                # Take first 5 upcoming stations
-                upcoming_delays = delays[:5]
+        dispatcher_text = ""
+        for i, (station, time_seconds) in enumerate(sorted_stations[:8], 1):
+            time_str = format_duration(time_seconds)
+            station_display = station[:24] if len(station) <= 24 else station[:21] + "..."
+            dispatcher_text += f"{i}. {station_display:<24} {time_str:>8}\n"
 
-                if upcoming_delays:
-                    lines = ["Next 5 Stations:\n"]
-                    for i, delay in enumerate(upcoming_delays, 1):
-                        # Format times
-                        scheduled = delay.scheduled_time.strftime("%H:%M")
-                        realtime = delay.realtime_time.strftime("%H:%M")
+        dispatcher_panel.stations_text = dispatcher_text
 
-                        # Stop indicator
-                        if delay.stop_type == "NONE":
-                            stop_ind = "━━━"
-                        elif delay.event_type == "ARRIVAL":
-                            stop_ind = "[A]"
-                        elif delay.event_type == "DEPARTURE":
-                            stop_ind = "[D]"
-                        else:
-                            stop_ind = "   "
+    async def _get_next_station_dispatcher_status(self, server_code: str, station_name: str) -> str:
+        """Get dispatcher status for next station (👤 human or 🤖 AI)."""
+        try:
+            stations = await self.tracker.simrail_client.get_stations(server_code)
+            for station in stations:
+                if station["Name"] == station_name:
+                    dispatchers = station.get("DispatchedBy", [])
+                    if dispatchers and dispatchers[0].get("SteamId"):
+                        return " 👤"
+                    return " 🤖"
+        except Exception as e:
+            logging.getLogger(__name__).debug("Dispatcher check error: %s", e)
+        return ""
 
-                        # Delay indicator
-                        delay_min = delay.delay_minutes
-                        if abs(delay_min) > 1:
-                            if delay_min > 0:
-                                delay_str = f"+{delay_min:.0f}m 🔴"
-                            else:
-                                delay_str = f"{delay_min:.0f}m 🟢"
-                        else:
-                            delay_str = "on time ⚪"
-
-                        # Time type
-                        if delay.time_type.upper() == "SCHEDULE":
-                            time_ind = "📅"
-                        elif delay.time_type.upper() == "PREDICTION":
-                            time_ind = "🔮"
-                        else:
-                            time_ind = ""
-
-                        # Dispatcher for next station
-                        dispatcher = ""
-                        if i == 1 and delay.event_type != "PASS":
-                            try:
-                                stations = await self.tracker.simrail_client.get_stations(
-                                    active_train["server_code"]
-                                )
-                                for station in stations:
-                                    if station["Name"] == delay.station_name:
-                                        dispatchers = station.get("DispatchedBy", [])
-                                        if dispatchers and dispatchers[0].get("SteamId"):
-                                            dispatcher = " 👤"
-                                        else:
-                                            dispatcher = " 🤖"
-                                        break
-                            except Exception as e:
-                                # Non-critical - dispatcher status is optional
-                                logging.getLogger(__name__).debug("Dispatcher check error: %s", e)
-
-                        line = f"{i}. {stop_ind} {delay.station_name[:28]:<28}\n"
-                        line += f"   {scheduled}→{realtime} {delay_str} {time_ind}{dispatcher}"
-
-                        lines.append(line)
-
-                    upcoming_panel.upcoming_text = "\n\n".join(lines)
-                else:
-                    upcoming_panel.upcoming_text = "No upcoming stations"
-            except Exception as e:
-                logging.getLogger(__name__).exception("Error fetching upcoming stations")
-                upcoming_panel.upcoming_text = f"Could not fetch delay info:\n{e}"
-        else:
+    async def _update_upcoming_stations_panel(
+        self, upcoming_panel: UpcomingStationsPanel, active_train: dict | None
+    ) -> None:
+        """Update the upcoming stations panel with delay info."""
+        if not active_train or not self.tracker.current_journey_id:
             logging.getLogger(__name__).debug(
                 "No upcoming stations: active_train=%s, journey_id=%s",
                 bool(active_train),
                 self.tracker.current_journey_id[:16] if self.tracker.current_journey_id else None,
             )
             upcoming_panel.upcoming_text = "No active train or no journey data"
+            return
 
-        # Update passed stations panel
-        if active_train:
-            passed_panel = self.query_one(PassedStationsPanel)
-            # Get station passages for current session
-            import sqlite3
+        try:
+            logging.getLogger(__name__).debug(
+                "Fetching delays for journey %s", self.tracker.current_journey_id[:16]
+            )
+            delays = await self.tracker.simrail_tools_client.get_journey_delays(
+                self.tracker.current_journey_id, upcoming_only=True
+            )
 
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
-                cursor = conn.execute(
-                    """
-                    SELECT station_name, stop_type, passed_at
-                    FROM train_station_passages
-                    WHERE train_session_id = ?
-                    ORDER BY passed_at DESC
-                    """,
-                    (active_train["id"],),
-                )
-                stations = cursor.fetchall()
-                passed_panel.update_stations(stations)
+            upcoming_delays = delays[:5]
+            if not upcoming_delays:
+                upcoming_panel.upcoming_text = "No upcoming stations"
+                return
 
-        # Update next station board panel
-        board_panel = self.query_one(NextStationBoardPanel)
-        if active_train and self.tracker.current_journey_id:
-            try:
-                # Get journey to find next station
-                journey = await self.tracker.simrail_tools_client.get_journey(
-                    self.tracker.current_journey_id
-                )
-                if journey and journey.events:
-                    # Find last REAL event (station we've already passed)
-                    last_real_index = -1
-                    for i, event in enumerate(journey.events):
-                        if event.realtimeTimeType == "REAL":
-                            last_real_index = i
+            lines = ["Next 5 Stations:\n"]
+            for i, delay in enumerate(upcoming_delays, 1):
+                scheduled = delay.scheduled_time.strftime("%H:%M")
+                realtime = delay.realtime_time.strftime("%H:%M")
 
-                    # Find next upcoming station (first PREDICTION/SCHEDULE after last REAL)
-                    next_station_point_id = None
-                    next_station_name = None
-                    for event in journey.events[last_real_index + 1 :]:
-                        if event.realtimeTimeType in ("PREDICTION", "SCHEDULE"):
-                            next_station_point_id = event.stopPlace.id
-                            next_station_name = event.stopPlace.name
-                            break
-
-                    if next_station_point_id and next_station_name:
-                        # Fetch arrivals and departures
-                        server_id = active_train["server_code"]
-                        # Convert server code to ID if needed
-                        if not server_id.count("-") >= 4:
-                            server_id = (
-                                await self.tracker.simrail_tools_client.get_server_id_by_code(
-                                    server_id
-                                )
-                            )
-
-                        if server_id:
-                            departures = await self.tracker.simrail_tools_client.get_departures(
-                                server_id, next_station_point_id
-                            )
-                            arrivals = await self.tracker.simrail_tools_client.get_arrivals(
-                                server_id, next_station_point_id
-                            )
-
-                            # Format display
-                            board_text = f"Station: {next_station_name}\n\n"
-
-                            if departures:
-                                board_text += "🚂 Departures:\n"
-                                for dep in departures[:5]:
-                                    time_str = dep.realtimeTime.strftime("%H:%M")
-                                    delay_min = (
-                                        dep.realtimeTime - dep.scheduledTime
-                                    ).total_seconds() / 60
-                                    delay_indicator = ""
-                                    if abs(delay_min) > 1:
-                                        if delay_min > 0:
-                                            delay_indicator = f" +{delay_min:.0f}m"
-                                        else:
-                                            delay_indicator = f" {delay_min:.0f}m"
-
-                                    platform_info = ""
-                                    if dep.realtimePassengerStop:
-                                        platform_info = f" Pl.{dep.realtimePassengerStop.platform}"
-
-                                    board_text += f"{time_str}{delay_indicator} {dep.transport.category} {dep.transport.number}{platform_info}\n"
-
-                            board_text += "\n"
-
-                            if arrivals:
-                                board_text += "🚃 Arrivals:\n"
-                                for arr in arrivals[:5]:
-                                    time_str = arr.realtimeTime.strftime("%H:%M")
-                                    delay_min = (
-                                        arr.realtimeTime - arr.scheduledTime
-                                    ).total_seconds() / 60
-                                    delay_indicator = ""
-                                    if abs(delay_min) > 1:
-                                        if delay_min > 0:
-                                            delay_indicator = f" +{delay_min:.0f}m"
-                                        else:
-                                            delay_indicator = f" {delay_min:.0f}m"
-
-                                    platform_info = ""
-                                    if arr.realtimePassengerStop:
-                                        platform_info = f" Pl.{arr.realtimePassengerStop.platform}"
-
-                                    board_text += f"{time_str}{delay_indicator} {arr.transport.category} {arr.transport.number}{platform_info}\n"
-
-                            board_panel.board_text = board_text
-                        else:
-                            board_panel.board_text = "Could not resolve server ID"
-                    else:
-                        board_panel.board_text = "No upcoming stations in journey"
+                # Stop indicator
+                if delay.stop_type == "NONE":
+                    stop_ind = "━━━"
+                elif delay.event_type == "ARRIVAL":
+                    stop_ind = "[A]"
+                elif delay.event_type == "DEPARTURE":
+                    stop_ind = "[D]"
                 else:
-                    board_panel.board_text = "No journey data available"
-            except Exception as e:
-                logging.getLogger(__name__).debug("Could not fetch next station board: %s", e)
-                board_panel.board_text = "Error fetching board data"
-        else:
+                    stop_ind = "   "
+
+                # Delay indicator
+                delay_min = delay.delay_minutes
+                if abs(delay_min) > 1:
+                    delay_str = f"+{delay_min:.0f}m 🔴" if delay_min > 0 else f"{delay_min:.0f}m 🟢"
+                else:
+                    delay_str = "on time ⚪"
+
+                # Time type indicator
+                time_ind = {"SCHEDULE": "📅", "PREDICTION": "🔮"}.get(delay.time_type.upper(), "")
+
+                # Dispatcher status for first station
+                dispatcher = ""
+                if i == 1 and delay.event_type != "PASS":
+                    dispatcher = await self._get_next_station_dispatcher_status(
+                        active_train["server_code"], delay.station_name
+                    )
+
+                line = f"{i}. {stop_ind} {delay.station_name[:28]:<28}\n"
+                line += f"   {scheduled}→{realtime} {delay_str} {time_ind}{dispatcher}"
+                lines.append(line)
+
+            upcoming_panel.upcoming_text = "\n\n".join(lines)
+        except Exception as e:
+            logging.getLogger(__name__).exception("Error fetching upcoming stations")
+            upcoming_panel.upcoming_text = f"Could not fetch delay info:\n{e}"
+
+    def _update_passed_stations_panel(
+        self, passed_panel: PassedStationsPanel, active_train: dict | None
+    ) -> None:
+        """Update the passed stations panel."""
+        if not active_train:
+            return
+
+        import sqlite3
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
+            cursor = conn.execute(
+                """
+                SELECT station_name, stop_type, passed_at
+                FROM train_station_passages
+                WHERE train_session_id = ?
+                ORDER BY passed_at DESC
+                """,
+                (active_train["id"],),
+            )
+            stations = cursor.fetchall()
+            passed_panel.update_stations(stations)
+
+    def _format_board_entry(self, entry: Any, prefix: str) -> str:
+        """Format a single board entry (arrival or departure)."""
+        time_str = entry.realtimeTime.strftime("%H:%M")
+        delay_min = (entry.realtimeTime - entry.scheduledTime).total_seconds() / 60
+
+        delay_indicator = ""
+        if abs(delay_min) > 1:
+            delay_indicator = f" +{delay_min:.0f}m" if delay_min > 0 else f" {delay_min:.0f}m"
+
+        platform_info = ""
+        if entry.realtimePassengerStop:
+            platform_info = f" Pl.{entry.realtimePassengerStop.platform}"
+
+        return f"{time_str}{delay_indicator} {entry.transport.category} {entry.transport.number}{platform_info}\n"
+
+    async def _get_next_station_from_journey(self) -> tuple[str | None, str | None]:
+        """Find next station point ID and name from journey events."""
+        try:
+            journey = await self.tracker.simrail_tools_client.get_journey(
+                self.tracker.current_journey_id
+            )
+            if not journey or not journey.events:
+                return None, None
+
+            # Find last REAL event
+            last_real_index = -1
+            for i, event in enumerate(journey.events):
+                if event.realtimeTimeType == "REAL":
+                    last_real_index = i
+
+            # Find next upcoming station
+            for event in journey.events[last_real_index + 1 :]:
+                if event.realtimeTimeType in ("PREDICTION", "SCHEDULE"):
+                    return event.stopPlace.id, event.stopPlace.name
+
+        except Exception as e:
+            logging.getLogger(__name__).debug("Error finding next station: %s", e)
+
+        return None, None
+
+    async def _update_next_station_board_panel(
+        self, board_panel: NextStationBoardPanel, active_train: dict | None
+    ) -> None:
+        """Update the next station board panel."""
+        if not active_train or not self.tracker.current_journey_id:
             board_panel.board_text = "No active train or journey"
+            return
+
+        try:
+            next_station_point_id, next_station_name = await self._get_next_station_from_journey()
+
+            if not next_station_point_id or not next_station_name:
+                board_panel.board_text = "No upcoming stations in journey"
+                return
+
+            # Get server ID
+            server_id = active_train["server_code"]
+            if not server_id.count("-") >= 4:
+                server_id = await self.tracker.simrail_tools_client.get_server_id_by_code(server_id)
+
+            if not server_id:
+                board_panel.board_text = "Could not resolve server ID"
+                return
+
+            # Fetch arrivals and departures
+            departures = await self.tracker.simrail_tools_client.get_departures(
+                server_id, next_station_point_id
+            )
+            arrivals = await self.tracker.simrail_tools_client.get_arrivals(
+                server_id, next_station_point_id
+            )
+
+            # Format display
+            board_text = f"Station: {next_station_name}\n\n"
+
+            if departures:
+                board_text += "🚂 Departures:\n"
+                for dep in departures[:5]:
+                    board_text += self._format_board_entry(dep, "🚂")
+
+            board_text += "\n"
+
+            if arrivals:
+                board_text += "🚃 Arrivals:\n"
+                for arr in arrivals[:5]:
+                    board_text += self._format_board_entry(arr, "🚃")
+
+            board_panel.board_text = board_text
+
+        except Exception as e:
+            logging.getLogger(__name__).debug("Could not fetch next station board: %s", e)
+            board_panel.board_text = "Error fetching board data"
+
+    async def update_dashboard(self) -> None:
+        """Update all dashboard panels with current data."""
+        if not self.tracker or not self.db:
+            return
+
+        # Get shared data
+        player_activity = self.tracker.current_activity
+        active_train = self.db.get_active_train_session(self.steam_id)
+        active_station = self.db.get_active_station_session(self.steam_id)
+        stats = self.db.get_stats(self.steam_id)
+        latest_steam = self.db.get_latest_steam_stats(self.steam_id)
+
+        # Update all panels
+        await self._update_session_panel(
+            self.query_one("#session-panel", SessionPanel), active_train, active_station
+        )
+
+        self._update_signal_panel(
+            self.query_one("#signal-panel", SignalStatePanel), player_activity
+        )
+
+        self._update_stats_panel(self.query_one("#stats-panel", StatsPanel), stats, latest_steam)
+
+        self._update_composition_panel(
+            self.query_one("#composition-panel", CompositionPanel), active_train
+        )
+
+        self._update_dispatcher_panel(
+            self.query_one("#dispatcher-stations-panel", DispatcherStationsPanel), stats
+        )
+
+        await self._update_upcoming_stations_panel(
+            self.query_one(UpcomingStationsPanel), active_train
+        )
+
+        self._update_passed_stations_panel(self.query_one(PassedStationsPanel), active_train)
+
+        await self._update_next_station_board_panel(
+            self.query_one(NextStationBoardPanel), active_train
+        )
 
         # Update top trains panel
         top_trains_panel = self.query_one(TopTrainsPanel)
