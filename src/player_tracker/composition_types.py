@@ -77,14 +77,14 @@ class VehicleComposition(BaseModel):
             return ""
 
         info_parts = []
+        # Category is already displayed in train summary
         if self.transport.type:
             info_parts.append(f"Type: {self.transport.type}")
-        if self.transport.category_external:
-            info_parts.append(f"Category (external): {self.transport.category_external}")
         if self.transport.line:
             info_parts.append(f"Line: {self.transport.line}")
         if self.transport.label:
             info_parts.append(f"Label: {self.transport.label}")
+        # TODO Why is max_speed often too low?
         if self.transport.max_speed:
             info_parts.append(f"Max Speed: {self.transport.max_speed} km/h")
 
