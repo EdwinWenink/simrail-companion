@@ -145,7 +145,7 @@ The codebase uses a `src/` layout with four main packages:
   - `emus`: List of EMU unit details (shorthand)
   - `vehicles`: Full list of ALL vehicles with types, weights, loads
   - Summary fields: `num_wagons`, `total_length`, `total_weight`
-- Denormalized fields for SQL queries: `vehicle_summary`, `locomotive_names`, `num_locomotives`, `traction_type`
+- Denormalized fields for SQL queries: `vehicle_summary`, `traction_name`, `num_locomotives`, `traction_type`
 
 **Single-Instance Lock**:
 - `TrackerLock` class uses PID file (`data/tracker_{steam_id}.lock`)
@@ -163,7 +163,7 @@ The codebase uses a `src/` layout with four main packages:
 **train_sessions** table:
 - Basic: steam_id, server, train_number, train_name, route, timestamps
 - Performance: distance_meters, points, baseline_distance, baseline_points
-- Vehicle composition: vehicle_summary, traction_type, transport_type, locomotive_names, num_locomotives, num_wagons, total_vehicles, total_length, total_weight, composition_json
+- Vehicle composition: vehicle_summary, traction_type, transport_type, traction_name, num_locomotives, num_wagons, total_vehicles, total_length, total_weight, composition_json
 - `composition_json` includes transport details (category, line, label, max_speed, type) from journey API
 - `transport_type` extracted from journey transport information (e.g., "PASSENGER", "FREIGHT")
 

@@ -18,7 +18,7 @@ Train driving sessions with distance, points, and detailed vehicle composition:
 - **Vehicle composition** (new):
   - `vehicle_summary` - Human-readable summary (e.g., "EU07-002 + 15 wagons")
   - `traction_type` - LOCOMOTIVE, EMU, or MULTIPLE_UNIT
-  - `locomotive_names` - Comma-separated list (e.g., "EU07-002, EU07-015" for double-headed)
+  - `traction_name` - Comma-separated list (e.g., "EU07-002, EU07-015" for double-headed)
   - `num_locomotives` - Number of locomotives
   - `num_wagons` - Number of wagons
   - `total_vehicles` - Total consist length
@@ -45,7 +45,7 @@ uv run scripts/show_summary.py <steam_id>
 Query vehicle composition:
 ```sql
 -- Find double-headed trains
-SELECT train_number, locomotive_names, total_weight 
+SELECT train_number, traction_name, total_weight 
 FROM train_sessions 
 WHERE num_locomotives > 1;
 

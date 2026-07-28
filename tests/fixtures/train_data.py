@@ -193,7 +193,7 @@ def train_session_db_entry():
         "vehicle_summary": "EU07 096",
         "traction_type": "LOCOMOTIVE",
         "transport_type": "PASSENGER",
-        "locomotive_names": "EU07 096",
+        "traction_name": "EU07 096",
         "num_locomotives": 1,
         "num_wagons": 8,
         "total_vehicles": 9,

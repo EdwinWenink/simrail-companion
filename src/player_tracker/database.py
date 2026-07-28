@@ -33,7 +33,7 @@ class TrackerDatabase:
                     vehicle_summary TEXT,
                     traction_type TEXT,
                     transport_type TEXT,
-                    locomotive_names TEXT,
+                    traction_name TEXT,
                     num_locomotives INTEGER,
                     num_wagons INTEGER,
                     total_vehicles INTEGER,
@@ -166,9 +166,18 @@ class TrackerDatabase:
                 """)
                 migration_needed = True
 
-            if "locomotive_names" not in columns:
+            # Rename 'locomotive_names' to 'traction_name' if needed
+            if "locomotive_names" in columns and "traction_name" not in columns:
                 conn.execute("""
-                    ALTER TABLE train_sessions ADD COLUMN locomotive_names TEXT
+                    ALTER TABLE train_sessions ADD COLUMN traction_name TEXT
+                """)
+                conn.execute("""
+                    UPDATE train_sessions SET traction_name = locomotive_names
+                """)
+                migration_needed = True
+            elif "traction_name" not in columns:
+                conn.execute("""
+                    ALTER TABLE train_sessions ADD COLUMN traction_name TEXT
                 """)
                 migration_needed = True
 
@@ -218,6 +227,17 @@ class TrackerDatabase:
                     migration_needed = True
                 except Exception as e:
                     logger.warning("Could not drop vehicle column: %s", e)
+
+            # Drop old locomotive_names column if it exists
+            if "locomotive_names" in columns:
+                try:
+                    conn.execute("""
+                        ALTER TABLE train_sessions DROP COLUMN locomotive_names
+                    """)
+                    logger.info("✓ Migrated and dropped old 'locomotive_names' column")
+                    migration_needed = True
+                except Exception as e:
+                    logger.warning("Could not drop locomotive_names column: %s", e)
 
             # Migration for train_sessions: add transport_type if missing
             if "transport_type" not in columns:
@@ -276,7 +296,7 @@ class TrackerDatabase:
         vehicle_summary = vehicle
         traction_type = None
         transport_type = None
-        locomotive_names = None
+        traction_name = None
         num_locomotives = None
         num_wagons = None
         total_vehicles = None
@@ -292,20 +312,27 @@ class TrackerDatabase:
                 transport_type = transport_info.get("type")
 
             locomotives = vehicle_composition.get("locomotives", [])
+            emus = vehicle_composition.get("emus", [])
 
             if locomotives:
-                locomotive_names = ", ".join(loc["displayName"] for loc in locomotives)
+                traction_name = ", ".join(loc["displayName"] for loc in locomotives)
                 num_locomotives = len(locomotives)
 
                 # Build summary string
                 if num_locomotives == 1:
-                    vehicle_summary = locomotive_names
+                    vehicle_summary = traction_name
                 else:
-                    vehicle_summary = f"{locomotive_names} (double-headed)"
+                    vehicle_summary = f"{traction_name} (double-headed)"
 
                 num_wagons = vehicle_composition.get("num_wagons", 0)
                 if num_wagons > 0:
                     vehicle_summary += f" + {num_wagons} wagons"
+            elif emus:
+                traction_name = ", ".join(emu["displayName"] for emu in emus)
+                num_locomotives = len(emus)  # Store EMU count as num_locomotives for consistency
+
+                # Build summary string for EMUs
+                vehicle_summary = traction_name
 
             total_vehicles = vehicle_composition.get("total_vehicles")
             total_length = vehicle_composition.get("total_length")
@@ -321,7 +348,7 @@ class TrackerDatabase:
                     id, steam_id, server_code, server_name, train_number,
                     train_name, start_station, end_station, vehicle_summary, joined_at,
                     baseline_distance, baseline_points,
-                    traction_type, transport_type, locomotive_names, num_locomotives, num_wagons,
+                    traction_type, transport_type, traction_name, num_locomotives, num_wagons,
                     total_vehicles, total_length, total_weight, composition_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -340,7 +367,7 @@ class TrackerDatabase:
                     baseline_points,
                     traction_type,
                     transport_type,
-                    locomotive_names,
+                    traction_name,
                     num_locomotives,
                     num_wagons,
                     total_vehicles,
@@ -594,11 +621,11 @@ class TrackerDatabase:
             )
             station_stats = station_cursor.fetchone()
 
-            # Per-vehicle stats (using vehicle_summary)
+            # Per-traction stats (using traction_name)
             vehicle_cursor = conn.execute(
                 """
                 SELECT
-                    vehicle_summary,
+                    traction_name,
                     COALESCE(SUM(distance_meters), 0) as distance,
                     COALESCE(SUM(points), 0) as points,
                     COALESCE(SUM(
@@ -607,8 +634,8 @@ class TrackerDatabase:
                         ELSE 0 END
                     ), 0) as time
                 FROM train_sessions
-                WHERE steam_id = ? AND left_at IS NOT NULL AND vehicle_summary IS NOT NULL
-                GROUP BY vehicle_summary
+                WHERE steam_id = ? AND left_at IS NOT NULL AND traction_name IS NOT NULL
+                GROUP BY traction_name
                 """,
                 (steam_id,),
             )
