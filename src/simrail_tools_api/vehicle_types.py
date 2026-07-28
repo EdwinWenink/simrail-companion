@@ -97,17 +97,35 @@ class VehicleSequence(BaseModel):
         locs = self.locomotives
         return locs[0] if locs else None
 
+    @property
+    def num_vehicles(self) -> int:
+        """Total number of vehicles in the sequence."""
+        return len(self.vehicles)
+
+    @property
+    def total_railcar_weight(self) -> float:
+        """Total weight of all railcars (excluding load)."""
+        return sum(v.railcar.weight for v in self.vehicles)
+
+    @property
+    def total_load_weight(self) -> float:
+        """Total weight of all loads on wagons."""
+        return sum(v.loadWeight or 0 for v in self.vehicles)
+
+    @property
+    def total_weight(self) -> float:
+        """Total weight including railcars and loads."""
+        return self.total_railcar_weight + self.total_load_weight
+
+    @property
+    def total_length(self) -> float:
+        """Total length of all vehicles."""
+        return sum(v.railcar.length for v in self.vehicles)
+
     def __str__(self) -> str:
         """Return a human-readable representation of the vehicle composition."""
         if not self.vehicles:
             return "Empty vehicle composition"
-
-        # Calculate statistics
-        # TODO do not compute here, make computed property
-        num_vehicles = len(self.vehicles)
-        total_railcar_weight = sum(v.railcar.weight for v in self.vehicles)
-        total_load_weight = sum(v.loadWeight or 0 for v in self.vehicles)
-        total_length = sum(v.railcar.length for v in self.vehicles)
 
         # Build the output
         lines = []
@@ -133,10 +151,10 @@ class VehicleSequence(BaseModel):
 
         lines.append("")
         lines.append("📊 COMPOSITION STATS")
-        lines.append(f"   Vehicles: {num_vehicles}")
+        lines.append(f"   Vehicles: {self.num_vehicles}")
         lines.append(
-            f"   Total Weight: {total_railcar_weight:.1f}t (railcars) + {total_load_weight}t (load) = {total_railcar_weight + total_load_weight:.1f}t"
+            f"   Total Weight: {self.total_railcar_weight:.1f}t (railcars) + {self.total_load_weight}t (load) = {self.total_weight:.1f}t"
         )
-        lines.append(f"   Total Length: {total_length:.2f}m")
+        lines.append(f"   Total Length: {self.total_length:.2f}m")
 
         return "\n".join(lines)
