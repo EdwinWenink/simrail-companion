@@ -73,6 +73,9 @@ def format_datetime(dt_str: str) -> str:
 
 def get_signal_aspect(speed_limit: float | None) -> str:
     """Determine signal aspect based on speed limit.
+    NOTE: we actually haven't enough information to derive
+    the signal aspect from the speed limit alone.
+    This is a placeholder until I figure out something better.
 
     Args:
         speed_limit: Speed limit in km/h, or None
