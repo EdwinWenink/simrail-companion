@@ -20,6 +20,15 @@ from textual.widgets import (
 from player_tracker import PlayerTracker
 from player_tracker.composition_types import VehicleComposition
 from player_tracker.database import TrackerDatabase
+from player_tracker.formatting import (
+    format_distance,
+    format_duration,
+    format_signal_distance,
+    format_signal_limit,
+    format_time,
+    get_signal_aspect,
+)
+from player_tracker.station_utils import check_dispatcher_status
 
 # Suppress verbose logging in TUI mode
 logging.getLogger("simrail_api").setLevel(logging.WARNING)
@@ -29,35 +38,6 @@ logging.getLogger("player_tracker").setLevel(logging.WARNING)
 
 
 logger = logging.getLogger(__name__)
-
-
-def format_duration(seconds: float | None) -> str:
-    """Format duration in seconds to human readable string."""
-    if seconds is None:
-        return "—"
-    hours, remainder = divmod(int(seconds), 3600)
-    minutes, secs = divmod(remainder, 60)
-    if hours > 0:
-        return f"{hours}h {minutes}m"
-    return f"{minutes}m {secs}s"
-
-
-def format_distance(meters: int | None) -> str:
-    """Format distance in meters to km."""
-    if meters is None:
-        return "—"
-    return f"{meters / 1000:.2f} km"
-
-
-def format_time(iso_time: str | None) -> str:
-    """Format ISO timestamp to HH:MM:SS."""
-    if not iso_time:
-        return "—"
-    try:
-        dt = datetime.fromisoformat(iso_time)
-        return dt.strftime("%H:%M:%S")
-    except Exception:
-        return "—"
 
 
 class SessionPanel(VerticalScroll):
@@ -135,12 +115,8 @@ class CompositionPanel(VerticalScroll):
         # WAGONS/CARRIAGES (top level summary with expandable hint)
         num_wagons = comp.get("num_wagons", 0)
         if num_wagons > 0:
-            # Get wagon details (filter out locomotives and EMUs)
-            wagons = [
-                v
-                for v in comp.get("vehicles", [])
-                if v.get("type") not in ["LOCOMOTIVE", "ELECTRIC_MULTIPLE_UNIT"]
-            ]
+            # Get wagon details (filter for wagons and railcars only)
+            wagons = [v for v in comp.get("vehicles", []) if v.get("type") in ["WAGON", "RAILCAR"]]
 
             comp_text += f"\n🚃 Wagons ({num_wagons})"
             if not self.wagons_expanded:
@@ -514,29 +490,14 @@ class TrackerDashboard(App):
                 logger.debug("Update error: %s", e)
 
     def _get_transport_info_text(self, composition_json: str | None) -> str:
-        """Extract transport info from composition JSON."""
+        """Extract transport info from composition JSON using VehicleComposition model."""
         if not composition_json:
             return ""
 
         try:
-            composition = json.loads(composition_json)
-            transport = composition.get("transport")
-            if not transport:
-                return ""
-
-            info_parts = []
-            if transport_type := transport.get("type"):
-                info_parts.append(f"Type: {transport_type}")
-            if category_ext := transport.get("category_external"):
-                info_parts.append(f"Category (external): {category_ext}")
-            if line := transport.get("line"):
-                info_parts.append(f"Line: {line}")
-            if label := transport.get("label"):
-                info_parts.append(f"Label: {label}")
-            if max_speed := transport.get("max_speed"):
-                info_parts.append(f"Max Speed: {max_speed} km/h")
-
-            return "\n" + "\n".join(info_parts) if info_parts else ""
+            comp_data = json.loads(composition_json)
+            comp_model = VehicleComposition(**comp_data)
+            return comp_model.get_transport_summary()
         except Exception as e:
             logger.debug("Could not parse transport info: %s", e)
             return ""
@@ -594,36 +555,6 @@ Elapsed: {format_duration(elapsed)}"""
         else:
             session_panel.session_info = """Player is offline or not in a train/station."""
 
-    def _get_signal_aspect(self, speed_limit: float | None) -> str:
-        """Determine signal aspect based on speed limit."""
-        if speed_limit is None:
-            return "⚪ No data"
-        if speed_limit == 0:
-            return "🔴 Stop"
-        if speed_limit in [40, 60]:
-            return "🟠🟠 Slow"
-        if speed_limit in [80, 100]:
-            return "🟢🟠 Clear"
-        if speed_limit >= 32767 or speed_limit > 100:
-            return "🟢 vmax"
-        return "⚪ Unknown"
-
-    def _format_signal_distance(self, distance: float | None) -> str:
-        """Format signal distance."""
-        if distance is None:
-            return "—"
-        if distance >= 1000:
-            return f"{distance / 1000:.2f} km"
-        return f"{distance:.0f} m"
-
-    def _format_signal_limit(self, speed_limit: float | None) -> str:
-        """Format signal speed limit."""
-        if speed_limit is None:
-            return "—"
-        if speed_limit == 32767:
-            return "vmax"
-        return f"{speed_limit:.0f} km/h"
-
     def _update_signal_panel(
         self, signal_panel: SignalStatePanel, player_activity: dict | None
     ) -> None:
@@ -654,11 +585,11 @@ Elapsed: {format_duration(elapsed)}"""
         signal_text += "\n"
 
         if signal_in_front:
-            aspect = self._get_signal_aspect(signal_speed_limit)
+            aspect = get_signal_aspect(signal_speed_limit)
             signal_text += f"Signal: {aspect}\n"
             signal_text += f"ID: {signal_in_front}\n"
-            signal_text += f"Distance: {self._format_signal_distance(distance_to_signal)}\n"
-            signal_text += f"Limit: {self._format_signal_limit(signal_speed_limit)}"
+            signal_text += f"Distance: {format_signal_distance(distance_to_signal)}\n"
+            signal_text += f"Limit: {format_signal_limit(signal_speed_limit)}"
         else:
             signal_text += "No signal data"
 
@@ -728,17 +659,12 @@ Elapsed: {format_duration(elapsed)}"""
 
     async def _get_next_station_dispatcher_status(self, server_code: str, station_name: str) -> str:
         """Get dispatcher status for next station (👤 human or 🤖 AI)."""
-        try:
-            stations = await self.tracker.simrail_client.get_stations(server_code)
-            for station in stations:
-                if station["Name"] == station_name:
-                    dispatchers = station.get("DispatchedBy", [])
-                    if dispatchers and dispatchers[0].get("SteamId"):
-                        return " 👤"
-                    return " 🤖"
-        except Exception as e:
-            logger.debug("Dispatcher check error: %s", e)
-        return ""
+        if not self.tracker:
+            return ""
+        status = await check_dispatcher_status(
+            self.tracker.simrail_client, server_code, station_name
+        )
+        return f" {status}" if status else ""
 
     async def _update_upcoming_stations_panel(
         self, upcoming_panel: UpcomingStationsPanel, active_train: dict | None

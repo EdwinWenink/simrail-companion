@@ -74,12 +74,17 @@ STEAM_API_KEY='["key1", "key2", "key3"]'
 
 ```
 simrail-companion/
-├── main.py                       # Main player tracker (run this!)
+├── main.py                       # Main TUI tracker dashboard (run this!)
 ├── src/                          # Source code packages
 │   ├── simrail_api/              # SimRail multiplayer API client
 │   ├── simrail_steam/            # Steam API client
 │   ├── simrail_tools_api/        # SimRail Tools API client
 │   └── player_tracker/           # Player tracking core
+│       ├── tracker.py            # Main tracking logic
+│       ├── database.py           # SQLite operations
+│       ├── tui.py                # Textual UI dashboard
+│       ├── formatting.py         # Shared formatting utilities
+│       └── station_utils.py      # Station utilities
 ├── scripts/                      # Utility CLI tools
 ├── tools/                        # Debug/development utilities
 ├── data/                         # Database files
@@ -92,42 +97,34 @@ simrail-companion/
 This is because the tracker needs to compare your Steam stats before and after the session to calculate the distance driven and points scored.
 If you are playing a long session and your game crashes, you similarly lose points because SimRail only updates steam if the session is closed normally.
 
-### 🎨 TUI Dashboard (Recommended)
+### 🎨 TUI Dashboard (Default)
 
 Run the interactive terminal dashboard for real-time tracking with a beautiful interface:
 
 ```bash
-uv run tui_tracker.py
-```
-
-**Features:**
-- 🚂 Live session panel with current train/station info
-- 📊 Real-time statistics (distance, points, time)
-- 🧩 Vehicle composition viewer (locomotives, EMUs, wagons, weights)
-- 🚉 Upcoming stations with delay information (next 5 stops)
-- ⏱️ Real-time delay tracking (🔴 delayed, 🟢 early, ⚪ on time)
-- 👤 Dispatcher status (human/AI) for next station
-- 📍 Passed station history
-- 📜 Recent session history
-- 📋 Live event log (session transitions, stats, API events)
-- Auto-refresh every 5 seconds
-- Keyboard shortcuts: `R` to refresh, `Q` to quit
-
-See [TUI_GUIDE.md](docs/TUI_GUIDE.md) for full documentation and [TUI_LAYOUT.txt](docs/TUI_LAYOUT.txt) for a visual preview.
-
-### 🖥️ CLI Tracker (Traditional)
-
-Run the traditional command-line tracker with detailed logging:
-
-```bash
-uv run main.py  # Start the player tracker
+uv run main.py
 
 # Or activate the virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python main.py
 ```
 
-Best for debugging or running in the background with log redirection.
+**Features:**
+- 🚂 Live session panel with current train/station info
+- 🚦 Signal & speed panel with real-time speed limits and distance to signals
+- 📊 Real-time statistics (distance, points, time)
+- 🧩 Vehicle composition viewer (locomotives, EMUs, wagons, weights)
+- 🚉 Upcoming stations with delay information (next 5 stops)
+- ⏱️ Real-time delay tracking (🔴 delayed, 🟢 early, ⚪ on time)
+- 👤 Dispatcher status (human/AI) for next station
+- 📍 Passed station history
+- 📋 Next station arrivals & departures board
+- 🚂 Top traction units by time driven
+- 📜 Recent session history
+- Auto-refresh every 5 seconds
+- Keyboard shortcuts: `R` to refresh, `Q` to quit
+
+See [TUI_GUIDE.md](docs/TUI_GUIDE.md) for full documentation and [TUI_LAYOUT.txt](docs/TUI_LAYOUT.txt) for a visual preview.
 
 
 ## Standalone scripts

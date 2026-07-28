@@ -3,18 +3,18 @@
 Show delay information for a train.
 """
 
+import argparse
 import asyncio
 import sys
-import argparse
-from datetime import datetime
-from simrail_tools_api import SimRailToolsClient
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from player_tracker.formatting import format_time
+from player_tracker.station_utils import check_dispatcher_status
 from simrail_api import SimRailClient
-
-
-def format_time(iso_time: str) -> str:
-    """Format ISO time to readable format."""
-    dt = datetime.fromisoformat(iso_time.replace("Z", "+00:00"))
-    return dt.strftime("%H:%M:%S")
+from simrail_tools_api import SimRailToolsClient
 
 
 async def main():
@@ -45,13 +45,15 @@ async def main():
         await simrail_client.close()
         return
 
-    # Get station dispatcher information
-    stations = await simrail_client.get_stations(args.server_id)
-    station_dispatchers = {}
-    for station in stations:
-        dispatchers = station.get("DispatchedBy", [])
-        has_human = bool(dispatchers and dispatchers[0].get("SteamId"))
-        station_dispatchers[station["Name"]] = "👤 Human" if has_human else "🤖 AI"
+    # Function to get dispatcher status for a station
+    async def get_dispatcher_display(station_name: str) -> str:
+        """Get dispatcher display string for a station."""
+        status = await check_dispatcher_status(simrail_client, args.server_id, station_name)
+        if status == "👤":
+            return "👤 Human"
+        elif status == "🤖":
+            return "🤖 AI"
+        return "Unknown"
 
     print("=" * 80)
     print(f"DELAY INFORMATION - Train {args.train_number}")
@@ -61,24 +63,24 @@ async def main():
         current = delay_info["current_delay"]
         delay_min = current["delay_minutes"]
 
-        print(f"\n🚂 Current Status:")
+        print("\n🚂 Current Status:")
         if abs(delay_min) <= 1:
-            print(f"   ✅ ON TIME")
+            print("   ✅ ON TIME")
         elif delay_min > 0:
             print(f"   ⚠️  DELAYED by {delay_min:.1f} minutes")
         else:
             print(f"   ⏩ EARLY by {abs(delay_min):.1f} minutes")
 
-        print(f"\nNext Stop:")
+        print("\nNext Stop:")
         print(f"   Station: {current['station_name']}")
-        dispatcher = station_dispatchers.get(current["station_name"], "🤖 AI")
+        dispatcher = await get_dispatcher_display(current["station_name"])
         print(f"   Dispatcher: {dispatcher}")
         print(f"   Event: {current['event_type'].title()}")
         print(f"   Scheduled: {format_time(current['scheduled_time'])}")
         print(f"   Expected: {format_time(current['realtime_time'])}")
         print(f"   Time Type: {current['time_type']}")
 
-    print(f"\n📅 Upcoming Events:")
+    print("\n📅 Upcoming Events:")
     print("-" * 95)
     print(
         f"{'Station':<30} {'Disp':<8} {'Type':<10} {'Scheduled':<10} {'Expected':<10} {'Delay':<15}"
@@ -103,7 +105,7 @@ async def main():
         )
 
         # Get dispatcher type
-        dispatcher = station_dispatchers.get(event["station_name"], "🤖 AI")
+        dispatcher = await get_dispatcher_display(event["station_name"])
 
         print(
             f"{station:<30} "

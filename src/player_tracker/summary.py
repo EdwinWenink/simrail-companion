@@ -1,34 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from .database import TrackerDatabase
-
-
-def format_vehicle_info(session: dict) -> str:
-    """Format vehicle information with optional weight and length."""
-    vehicle_info = session.get("vehicle_summary", "Unknown")
-    if session.get("total_weight"):
-        vehicle_info += f" ({session['total_weight']:.0f}t)"
-    if session.get("total_length"):
-        vehicle_info += f" • {session['total_length']:.1f}m"
-    return vehicle_info
-
-
-def format_duration(seconds: float) -> str:
-    """Format seconds into human-readable duration."""
-    if seconds < 60:
-        return f"{int(seconds)}s"
-    if seconds < 3600:
-        return f"{int(seconds / 60)}m {int(seconds % 60)}s"
-
-    hours = int(seconds / 3600)
-    minutes = int((seconds % 3600) / 60)
-    return f"{hours}h {minutes}m"
-
-
-def format_datetime(dt_str: str) -> str:
-    """Format ISO datetime string to readable format."""
-    dt = datetime.fromisoformat(dt_str)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
+from .formatting import format_datetime, format_duration, format_vehicle_info
 
 
 def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
@@ -57,14 +30,11 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
         print(
             f"Dispatcher Time:         {latest_steam['total_dispatcher_time_minutes']:,} min ({latest_steam['total_dispatcher_time_minutes'] / 60:.2f} hours)"
         )
-        print(
-            f"Last Synced:             {format_datetime(latest_steam['recorded_at'])}"
-        )
+        print(f"Last Synced:             {format_datetime(latest_steam['recorded_at'])}")
 
         if previous_steam and previous_steam["id"] != latest_steam["id"]:
             distance_gain = (
-                latest_steam["total_distance_meters"]
-                - previous_steam["total_distance_meters"]
+                latest_steam["total_distance_meters"] - previous_steam["total_distance_meters"]
             )
             score_gain = latest_steam["total_score"] - previous_steam["total_score"]
             time_gain = (
@@ -72,9 +42,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
                 - previous_steam["total_dispatcher_time_minutes"]
             )
 
-            print(
-                f"\nGain since previous sync ({format_datetime(previous_steam['recorded_at'])}):"
-            )
+            print(f"\nGain since previous sync ({format_datetime(previous_steam['recorded_at'])}):")
             print(f"  Distance: +{distance_gain:,} m ({distance_gain / 1000:.2f} km)")
             print(f"  Score: +{score_gain:,}")
             print(f"  Dispatcher Time: +{time_gain} min ({time_gain / 60:.2f} hours)")
@@ -98,11 +66,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
     # Compare with Steam stats if available
     if latest_steam:
         coverage = (
-            (
-                stats["total_distance_meters"]
-                / latest_steam["total_distance_meters"]
-                * 100
-            )
+            (stats["total_distance_meters"] / latest_steam["total_distance_meters"] * 100)
             if latest_steam["total_distance_meters"] > 0
             else 0
         )
@@ -144,9 +108,7 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
         for session in all_station_sessions:
             if session["left_at"]:
                 station = session["station_name"]
-                station_session_counts[station] = (
-                    station_session_counts.get(station, 0) + 1
-                )
+                station_session_counts[station] = station_session_counts.get(station, 0) + 1
 
         # Sort by time
         sorted_stations = sorted(
@@ -254,14 +216,10 @@ def print_summary(db: TrackerDatabase, steam_id: str, session_limit: int = 10):
     all_sessions = []
 
     for session in recent_trains[:5]:
-        all_sessions.append(
-            {"type": "train", "time": session["joined_at"], "data": session}
-        )
+        all_sessions.append({"type": "train", "time": session["joined_at"], "data": session})
 
     for session in recent_stations[:5]:
-        all_sessions.append(
-            {"type": "station", "time": session["joined_at"], "data": session}
-        )
+        all_sessions.append({"type": "station", "time": session["joined_at"], "data": session})
 
     all_sessions.sort(key=lambda x: x["time"], reverse=True)
 
@@ -312,16 +270,10 @@ def print_active_sessions(db: TrackerDatabase, steam_id: str):
         # Format vehicle information with composition data
         vehicle_info = format_vehicle_info(active_train)
 
-        print(
-            f"\n🚂 Driving Train {active_train['train_number']} ({active_train['train_name']})"
-        )
+        print(f"\n🚂 Driving Train {active_train['train_number']} ({active_train['train_name']})")
         print(f"   Vehicle: {vehicle_info}")
-        print(
-            f"   Route: {active_train['start_station']} → {active_train['end_station']}"
-        )
-        print(
-            f"   Server: {active_train['server_name']} ({active_train['server_code']})"
-        )
+        print(f"   Route: {active_train['start_station']} → {active_train['end_station']}")
+        print(f"   Server: {active_train['server_name']} ({active_train['server_code']})")
         print(f"   Started: {format_datetime(active_train['joined_at'])}")
         print(f"   Duration: {format_duration(duration.total_seconds())}")
 
@@ -332,9 +284,7 @@ def print_active_sessions(db: TrackerDatabase, steam_id: str):
         print(
             f"\n📍 Dispatching at {active_station['station_name']} ({active_station['station_prefix']})"
         )
-        print(
-            f"   Server: {active_station['server_name']} ({active_station['server_code']})"
-        )
+        print(f"   Server: {active_station['server_name']} ({active_station['server_code']})")
         print(f"   Started: {format_datetime(active_station['joined_at'])}")
         print(f"   Duration: {format_duration(duration.total_seconds())}")
 

@@ -11,6 +11,7 @@ from simrail_tools_api import SimRailToolsClient
 
 from .composition_types import VehicleComposition
 from .database import TrackerDatabase
+from .station_utils import check_dispatcher_status
 
 logger = logging.getLogger(__name__)
 
@@ -773,21 +774,7 @@ class PlayerTracker:
 
     async def _check_dispatcher(self, server_code: str, station_name: str) -> str:
         """Check if a station has a human dispatcher."""
-        try:
-            stations = await self.simrail_client.get_stations(server_code)
-
-            for station in stations:
-                if station["Name"] == station_name:
-                    dispatchers = station.get("DispatchedBy", [])
-                    if dispatchers and dispatchers[0].get("SteamId"):
-                        return "👤"  # Human dispatcher
-                    else:
-                        return "🤖"  # AI dispatcher
-
-            return "🤖"  # Default to AI if station not found
-        except Exception as e:
-            logger.debug("Could not check dispatcher: %s", e)
-            return ""
+        return await check_dispatcher_status(self.simrail_client, server_code, station_name)
 
     async def _display_vehicle_composition(self, journey_id: str):
         """Fetch and display vehicle composition for a journey."""
