@@ -8,9 +8,9 @@ SimRail Companion is a Python toolkit for SimRail train simulation that provides
 - Steam API client for player profiles and statistics
 - SimRail multiplayer API client for live server/train/station tracking
 - SimRail Tools API client for journey details and vehicle composition
-- Automatic player session tracking with SQLite storage
+- Real-time TUI dashboard for tracking player sessions with live updates
 
-The primary use case is running `main.py` to continuously track a single player's sessions (trains driven, stations dispatched, distance traveled, points earned).
+The primary use case is running the TUI dashboard (`tui_tracker.py`) to continuously track and display a player's sessions in real-time (trains driven, stations dispatched, distance traveled, points earned, delays, vehicle composition, etc.).
 
 ## Commands
 
@@ -25,10 +25,7 @@ uv sync --dev
 
 ### Running
 ```bash
-# TUI Dashboard - Real-time interactive tracker (RECOMMENDED)
-uv run tui_tracker.py
-
-# Main player tracker - CLI with logging output (requires STEAM_ID in .env)
+# TUI Dashboard - Real-time interactive tracker (DEFAULT INTERFACE)
 uv run main.py
 
 # View tracking summary
@@ -68,11 +65,11 @@ uv run ruff check .
 uv run pyright
 ```
 
-## User Interfaces
+## User Interface
 
-### TUI Dashboard (`tui_tracker.py`)
+### TUI Dashboard (`main.py`)
 
-A real-time terminal UI built with [Textual](https://textual.textualize.io/) that provides:
+The main interface is a real-time terminal UI built with [Textual](https://textual.textualize.io/) that provides:
 
 **Left Column:**
 - **Session Panel**: Current active train/station with live stats (train number, route, vehicle, elapsed time, distance estimate)
@@ -95,14 +92,7 @@ A real-time terminal UI built with [Textual](https://textual.textualize.io/) tha
 - Runs tracker in background asyncio task
 - Uses reactive properties for efficient UI updates
 - Queries SQLite database directly for historical data
-- Respects the same PID lock as CLI tracker
-
-### CLI Tracker (`main.py`)
-
-Traditional logging-based tracker that outputs detailed logs to console. Best for:
-- Debugging tracker behavior
-- Following exact API interactions
-- Running in background with log redirection
+- Enforces single-instance locking via PID file
 
 ## Architecture
 
@@ -130,6 +120,8 @@ The codebase uses a `src/` layout with four main packages:
    - `database.py` - SQLite schema and queries
    - `composition_types.py` - Pydantic models for vehicle composition validation
    - `summary.py` - Display formatting
+   - `formatting.py` - Shared formatting utilities (duration, distance, time, signals)
+   - `station_utils.py` - Station-related utilities (dispatcher checking)
    - `lock.py` - Single-instance PID lock to prevent concurrent trackers
    - `tui.py` - Real-time Textual TUI dashboard with live updates
    - `sync_stations.py` - Helper to sync dispatch stations on first run

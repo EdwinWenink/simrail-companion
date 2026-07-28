@@ -685,45 +685,93 @@ Elapsed: {format_duration(elapsed)}"""
                 self.tracker.current_journey_id, upcoming_only=True
             )
 
-            upcoming_delays = delays[:5]
-            if not upcoming_delays:
+            if not delays:
                 upcoming_panel.upcoming_text = "No upcoming stations"
                 return
 
+            # Group delays by station name, preserving order
+            from collections import OrderedDict
+
+            stations_dict = OrderedDict()
+            for delay in delays:
+                if delay.station_name not in stations_dict:
+                    stations_dict[delay.station_name] = {
+                        "arrival": None,
+                        "departure": None,
+                        "pass": None,
+                    }
+
+                if delay.event_type == "ARRIVAL":
+                    stations_dict[delay.station_name]["arrival"] = delay
+                elif delay.event_type == "DEPARTURE":
+                    stations_dict[delay.station_name]["departure"] = delay
+                elif delay.event_type == "PASS":
+                    stations_dict[delay.station_name]["pass"] = delay
+
+            # Take first 5 unique stations
+            station_items = list(stations_dict.items())[:5]
+
             lines = []
-            for i, delay in enumerate(upcoming_delays, 1):
-                scheduled = delay.scheduled_time.strftime("%H:%M")
-                realtime = delay.realtime_time.strftime("%H:%M")
+            for i, (station_name, events) in enumerate(station_items, 1):
+                arrival = events["arrival"]
+                departure = events["departure"]
+                pass_through = events["pass"]
+
+                # Determine primary event to use
+                primary_event = departure or arrival or pass_through
+                if not primary_event:
+                    continue
 
                 # Stop indicator
-                if delay.stop_type == "NONE":
-                    stop_ind = "━━━"
-                elif delay.event_type == "ARRIVAL":
+                if pass_through:
+                    stop_ind = ">>>"
+                elif arrival and departure:
+                    stop_ind = "━━━"  # Both arr & dep = stop
+                elif arrival:
                     stop_ind = "[A]"
-                elif delay.event_type == "DEPARTURE":
+                elif departure:
                     stop_ind = "[D]"
                 else:
                     stop_ind = "   "
 
+                # Build time string
+                if arrival and departure:
+                    # Show arr→dep
+                    arr_sched = arrival.scheduled_time.strftime("%H:%M")
+                    arr_real = arrival.realtime_time.strftime("%H:%M")
+                    dep_sched = departure.scheduled_time.strftime("%H:%M")
+                    dep_real = departure.realtime_time.strftime("%H:%M")
+                    time_str = f"{arr_sched}→{dep_sched} ({arr_real}→{dep_real})"
+
+                    # Use departure delay as primary
+                    delay_min = departure.delay_minutes
+                    time_type = departure.time_type
+                else:
+                    # Single event
+                    scheduled = primary_event.scheduled_time.strftime("%H:%M")
+                    realtime = primary_event.realtime_time.strftime("%H:%M")
+                    time_str = f"{scheduled}→{realtime}"
+                    delay_min = primary_event.delay_minutes
+                    time_type = primary_event.time_type
+
                 # Delay indicator
-                delay_min = delay.delay_minutes
                 if abs(delay_min) > 1:
                     delay_str = f"+{delay_min:.0f}m 🔴" if delay_min > 0 else f"{delay_min:.0f}m 🟢"
                 else:
                     delay_str = "on time ⚪"
 
                 # Time type indicator
-                time_ind = {"SCHEDULE": "📅", "PREDICTION": "🔮"}.get(delay.time_type.upper(), "")
+                time_ind = {"SCHEDULE": "📅", "PREDICTION": "🔮"}.get(time_type.upper(), "")
 
                 # Dispatcher status for first station
                 dispatcher = ""
-                if i == 1 and delay.event_type != "PASS":
+                if i == 1 and not pass_through:
                     dispatcher = await self._get_next_station_dispatcher_status(
-                        active_train["server_code"], delay.station_name
+                        active_train["server_code"], station_name
                     )
 
-                line = f"{i}. {stop_ind} {delay.station_name[:28]:<28}\n"
-                line += f"   {scheduled}→{realtime} {delay_str} {time_ind}{dispatcher}"
+                line = f"{i}. {stop_ind} {station_name[:28]:<28}\n"
+                line += f"   {time_str} {delay_str} {time_ind}{dispatcher}"
                 lines.append(line)
 
             upcoming_panel.upcoming_text = "\n\n".join(lines)
