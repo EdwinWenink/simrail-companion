@@ -167,13 +167,38 @@ class SignalStatePanel(VerticalScroll):
             logger.debug("Could not update signal panel: %s", e)
 
 
-class DispatcherStationsPanel(Static):
+class DispatcherStationsPanel(VerticalScroll):
     """Panel showing dispatcher station statistics."""
 
     stations_text = reactive("No dispatcher data")
 
-    def render(self) -> str:
-        return self.stations_text
+    def compose(self) -> ComposeResult:
+        yield Static(id="dispatcher-content")
+
+    def watch_stations_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        try:
+            content = self.query_one("#dispatcher-content", Static)
+            content.update(new_text)
+        except Exception as e:
+            logger.debug("Could not update dispatcher panel: %s", e)
+
+
+class PassedStationsStatsPanel(VerticalScroll):
+    """Panel showing most passed stations statistics."""
+
+    passages_text = reactive("No passage data")
+
+    def compose(self) -> ComposeResult:
+        yield Static(id="passages-content")
+
+    def watch_passages_text(self, new_text: str) -> None:
+        """Update the static content when text changes."""
+        try:
+            content = self.query_one("#passages-content", Static)
+            content.update(new_text)
+        except Exception as e:
+            logger.debug("Could not update passages panel: %s", e)
 
 
 class UpcomingStationsPanel(VerticalScroll):
@@ -254,7 +279,7 @@ class TopTrainsPanel(VerticalScroll):
             reverse=True,
         )
 
-        for vehicle, data in sorted_trains[:10]:  # Show top 10
+        for vehicle, data in sorted_trains:
             distance_km = data["distance"] / 1000
             time_str = format_duration(data["time"])
             # Truncate long vehicle names
@@ -373,17 +398,22 @@ class TrackerDashboard(App):
     }
 
     #top-trains-panel {
-        height: 40%;
+        height: 35%;
         background: $panel;
     }
 
     #dispatcher-stations-panel {
-        height: 30%;
+        height: 18%;
+        background: $panel;
+    }
+
+    #passed-stations-stats-panel {
+        height: 18%;
         background: $panel;
     }
 
     #sessions-panel {
-        height: 20%;
+        height: 19%;
         background: $panel;
     }
 
@@ -452,8 +482,14 @@ class TrackerDashboard(App):
                 dispatcher_panel = DispatcherStationsPanel(
                     id="dispatcher-stations-panel", classes="panel"
                 )
-                dispatcher_panel.border_title = "📍 Top Dispatcher Stations"
+                dispatcher_panel.border_title = "🎛️ Top Dispatcher Stations"
                 yield dispatcher_panel
+
+                passed_stations_stats_panel = PassedStationsStatsPanel(
+                    id="passed-stations-stats-panel", classes="panel"
+                )
+                passed_stations_stats_panel.border_title = "🚉 Most Passed Stations"
+                yield passed_stations_stats_panel
 
                 with Container(id="sessions-panel", classes="panel") as sessions_container:
                     sessions_container.border_title = "📜 Recent Sessions"
@@ -650,12 +686,49 @@ Elapsed: {format_duration(elapsed)}"""
         )
 
         dispatcher_text = ""
-        for i, (station, time_seconds) in enumerate(sorted_stations[:8], 1):
+        for i, (station, time_seconds) in enumerate(sorted_stations, 1):
             time_str = format_duration(time_seconds)
             station_display = station[:24] if len(station) <= 24 else station[:21] + "..."
             dispatcher_text += f"{i}. {station_display:<24} {time_str:>8}\n"
 
         dispatcher_panel.stations_text = dispatcher_text
+
+    def _update_passed_stations_stats_panel(
+        self, passages_panel: PassedStationsStatsPanel, stats: dict
+    ) -> None:
+        """Update the most passed stations panel."""
+        if not stats.get("station_passages"):
+            passages_panel.passages_text = "No passage data yet"
+            return
+
+        # Sort by total passage count
+        sorted_passages = sorted(
+            stats["station_passages"].items(), key=lambda x: x[1]["total"], reverse=True
+        )
+
+        passages_text = ""
+        for i, (station, data) in enumerate(sorted_passages, 1):
+            total = data["total"]
+            passenger = data["passenger_stops"]
+            technical = data["technical_stops"]
+            pass_through = data["pass_through"]
+
+            station_display = station[:20] if len(station) <= 20 else station[:17] + "..."
+
+            # Build stop type breakdown
+            stops = []
+            if passenger > 0:
+                stops.append(f"👤{passenger}")
+            if technical > 0:
+                stops.append(f"🔧{technical}")
+            if pass_through > 0:
+                stops.append(f">{pass_through}")
+
+            stops_str = " ".join(stops)
+
+            passages_text += f"{i}. {station_display:<20} {total:>3}× {stops_str}\n"
+
+        passages_panel.passages_text = passages_text
 
     async def _get_next_station_dispatcher_status(self, server_code: str, station_name: str) -> str:
         """Get dispatcher status for next station (👤 human or 🤖 AI)."""
@@ -924,6 +997,10 @@ Elapsed: {format_duration(elapsed)}"""
 
         self._update_dispatcher_panel(
             self.query_one("#dispatcher-stations-panel", DispatcherStationsPanel), stats
+        )
+
+        self._update_passed_stations_stats_panel(
+            self.query_one("#passed-stations-stats-panel", PassedStationsStatsPanel), stats
         )
 
         await self._update_upcoming_stations_panel(
